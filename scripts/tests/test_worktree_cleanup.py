@@ -4,6 +4,7 @@ Each test builds a real bare origin, a clone and a linked worktree, and puts fak
 gh/paseo/pnpm/wrangler on PATH (see fixtures/worktree_cleanup_fakes.py). Git runs for real.
 """
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -559,6 +560,321 @@ class WorktreeCleanupTest(unittest.TestCase):
         code, report = self.f.run("--path", str(self.f.tmp / "never-existed"))
         self.assertEqual(code, 2)
         self.assertIn("nothing to resume", report["error"])
+        self.assertEqual(report["code"], "REFUSE-GONE-NO-RECORD")
+        self.assertIn("REFUSE-GONE-NO-RECORD", self.f.last_stderr)
+
+    def record_then_remove_worktree(self):
+        """Run inside the target so preflight saves the record and the archive is deferred, then drop the worktree."""
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        git(self.f.main, "worktree", "remove", "--force", str(self.f.wt))
+
+    def test_workspace_with_the_recorded_id_but_a_different_cwd_is_not_archived(self):
+        self.record_then_remove_worktree()
+        elsewhere = self.f.tmp / "someone-elses-worktree"
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(elsewhere), "repo": str(self.f.main)}])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertEqual(self.f.step(report, "workspace")["status"], "already_done")
+        self.assertNotIn("archive wks_1", self.f.calls())
+        self.assertEqual([w["workspaceId"] for w in json.loads(self.f.fake_state.read_text())["workspaces"]], ["wks_1"])
+
+    def test_workspace_with_the_recorded_id_and_the_recorded_cwd_is_archived(self):
+        self.record_then_remove_worktree()
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(self.f.wt), "repo": str(self.f.main)}], archive_keeps_dir=True)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertEqual(self.f.step(report, "workspace")["status"], "done")
+        self.assertIn("archive wks_1", self.f.calls())
+
+    def test_every_refusal_carries_a_stable_code(self):
+        (self.f.wt / "scratch.txt").write_text("uncommitted\n")
+        cases = [
+            (("--path", str(self.f.wt)), "REFUSE-PREFLIGHT"),
+            (("--path", str(self.f.main)), "REFUSE-MAIN-CHECKOUT"),
+            (("--path", str(self.f.tmp / "plain")), "REFUSE-GONE-NO-RECORD"),
+            (("--workspace", "wks_nope"), "REFUSE-UNKNOWN-WORKSPACE"),
+        ]
+        for args, expected in cases:
+            code, report = self.f.run(*args)
+            self.assertEqual((code, report["status"], report["code"]), (2, "refused", expected), report)
+
+    def test_a_completed_run_has_no_refusal_code(self):
+        code, report = self.f.run("--workspace", "wks_1")
+        self.assertEqual((code, report["code"]), (0, None), report)
+
+    def test_show_record_prints_the_record_by_path_or_workspace_id(self):
+        self.record_then_remove_worktree()
+        self.f.fake(workspaces=[])
+        by_path_code, by_path = self.f.run("--show-record", str(self.f.wt))
+        by_id_code, by_id = self.f.run("--show-record", "wks_1")
+        self.assertEqual((by_path_code, by_id_code), (0, 0))
+        self.assertEqual(by_path, by_id)
+        self.assertEqual((by_path["workspace_id"], by_path["path"], by_path["branch"], by_path["head"]), ("wks_1", str(self.f.wt), "feat", self.f.head))
+
+    def test_show_record_by_a_workspace_id_held_by_two_records_is_refused_but_a_path_still_works(self):
+        self.record_then_remove_worktree()
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        other = str(self.f.tmp / "other-worktree")
+        key = hashlib.sha256(other.encode()).hexdigest()[:16]
+        (self.f.state_dir / f"{key}.json").write_text(json.dumps({**record, "path": other}))
+        code, report = self.f.run("--show-record", "wks_1")
+        self.assertEqual((code, report["code"]), (2, "REFUSE-AMBIGUOUS-RECORD"), report)
+        code, report = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual((code, report["path"]), (0, str(self.f.wt)), report)
+
+    def test_show_record_without_a_record_is_refused_and_changes_nothing(self):
+        code, report = self.f.run("--show-record", "wks_1")
+        self.assertEqual((code, report["status"], report["code"]), (2, "refused", "REFUSE-NO-RECORD"), report)
+        self.assertIn("REFUSE-NO-RECORD:", self.f.last_stderr)
+        code, report = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual((code, report["code"]), (2, "REFUSE-NO-RECORD"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+
+    def test_workspace_that_misses_falls_back_to_the_record_found_by_path(self):
+        self.record_then_remove_worktree()
+        self.f.fake(workspaces=[])
+        code, report = self.f.run("--workspace", "wks_renamed")
+        self.assertEqual((code, report["code"]), (2, "REFUSE-UNKNOWN-WORKSPACE"), report)
+        code, report = self.f.run("--workspace", "wks_renamed", "--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertFalse(self.f.remote_has_branch())
+
+    def test_workspace_and_path_that_name_different_worktrees_are_refused(self):
+        code, report = self.f.run("--workspace", "wks_1", "--path", str(self.f.main))
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertTrue(self.f.wt.exists())
+
+    def test_workspace_that_misses_without_a_record_at_the_path_is_refused_and_nothing_changes(self):
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt))
+        self.assertEqual((code, report["code"]), (2, "REFUSE-UNKNOWN-WORKSPACE"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_resume_command_after_the_workspace_id_is_reused_for_another_path_is_refused(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        elsewhere = self.f.tmp / "someone-elses-worktree"
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(elsewhere), "repo": str(self.f.main)}])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+
+    def test_a_subdirectory_of_the_worktree_we_run_in_still_defers_the_archive(self):
+        (self.f.wt / "sub").mkdir()
+        code, report = self.f.run("--path", str(self.f.wt / "sub"), cwd=self.f.wt)
+        self.assertEqual((code, report["status"], report["mode"]), (4, "deferred", "self"), report)
+        self.assertTrue(self.f.wt.exists())
+        self.assertEqual(self.f.calls(), [])
+
+    def test_resume_command_after_the_workspace_id_is_reused_for_an_ancestor_directory_is_refused(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(self.f.tmp), "repo": str(self.f.main)}])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+
+    def test_unknown_workspace_id_with_a_path_now_owned_by_another_workspace_is_refused(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(workspaces=[{"workspaceId": "wks_new", "cwd": str(self.f.wt), "repo": str(self.f.main)}])
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+
+    def test_unknown_workspace_id_with_a_new_workspace_rooted_in_a_subdirectory_is_refused_before_any_release(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.claim()
+        (self.f.wt / "sub").mkdir()
+        self.f.fake(workspaces=[{"workspaceId": "wks_new", "cwd": str(self.f.wt / "sub"), "repo": str(self.f.main)}])
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+
+    def test_resume_command_after_another_workspace_took_over_the_path_is_refused_and_removes_nothing(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(workspaces=[{"workspaceId": "wks_new", "cwd": str(self.f.wt), "repo": str(self.f.main)}])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_paseo_outage_is_not_read_as_the_workspace_being_gone(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(paseo_down=True)
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-PASEO-UNAVAILABLE"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_workspace_that_takes_over_the_path_after_resolution_is_not_removed_with_git(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        recorded = {"workspaceId": "wks_1", "cwd": str(self.f.wt), "repo": str(self.f.main)}
+        moved = {**recorded, "cwd": str(self.f.tmp / "elsewhere")}
+        taker = {"workspaceId": "wks_other", "cwd": str(self.f.wt), "repo": str(self.f.main)}
+        self.f.fake(ls_script=[[recorded], [moved, taker]])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual(self.f.step(report, "workspace")["note"], "path used by another workspace")
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_paseo_outage_after_resolution_fails_the_workspace_step_instead_of_removing_with_git(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(ls_script=[[], [], [], None])
+        code, report = self.f.run("--workspace", "wks_gone", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertEqual(self.f.step(report, "workspace")["status"], "failed")
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+        self.assertIn("--workspace wks_1", report["resume"])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-PASEO-UNAVAILABLE"), report)
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_fallback_never_adopts_an_owner_that_appears_in_one_listing(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        new = {"workspaceId": "wks_new", "cwd": str(self.f.wt), "repo": str(self.f.main)}
+        self.f.fake(ls_script=[[], [new], []])
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_fallback_never_cleans_a_different_worktree_that_now_holds_the_path(self):
+        self.record_then_remove_worktree()
+        git(self.f.main, "worktree", "add", "-b", "replacement", str(self.f.wt))
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_fallback_never_cleans_a_replacement_worktree_on_the_same_branch_and_path(self):
+        self.record_then_remove_worktree()
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual(code, 0, record)
+        git(self.f.main, "worktree", "add", str(self.f.wt), record["branch"])
+        self.f.claim()
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_fallback_never_cleans_another_branch_checked_out_in_the_recorded_worktree(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        git(self.f.wt, "switch", "-c", "other-work")
+        self.f.claim()
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_fallback_for_a_removed_nested_worktree_never_resolves_to_the_enclosing_one(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual(code, 0, record)
+        nested = self.f.wt / "nested"
+        nested.mkdir()
+        nested_real = str(nested.resolve())
+        key = hashlib.sha256(nested_real.encode()).hexdigest()[:16]
+        (self.f.state_dir / f"{key}.json").write_text(json.dumps({**record, "path": nested_real, "workspace_id": "wks_nested"}))
+        self.f.claim()
+        self.f.fake(workspaces=[])
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(nested), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_listed_workspace_with_a_recorded_nested_path_never_resolves_to_the_enclosing_worktree(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual(code, 0, record)
+        nested = self.f.wt / "nested"
+        nested.mkdir()
+        nested_real = str(nested.resolve())
+        key = hashlib.sha256(nested_real.encode()).hexdigest()[:16]
+        (self.f.state_dir / f"{key}.json").write_text(json.dumps({**record, "path": nested_real, "workspace_id": "wks_1"}))
+        self.f.claim()
+        code, report = self.f.run("--workspace", "wks_1", "--path", str(nested), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_the_resume_command_quotes_an_unmatched_workspace_argument(self):
+        self.f.fake(workspaces=[])
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(ls_script=[[], [], [], None])
+        code, report = self.f.run("--workspace", "wks gone;echo injected;#", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertIn("--workspace 'wks gone;echo injected;#' --path", report["resume"])
+
+    def test_a_fallback_to_a_record_without_a_workspace_keeps_requiring_paseo_on_resume(self):
+        self.f.fake(workspaces=[])
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(ls_script=[[], [], [], None])
+        code, report = self.f.run("--workspace", "wks_gone", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertIn("--workspace wks_gone", report["resume"])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-PASEO-UNAVAILABLE"), report)
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_workspace_rooted_in_a_subdirectory_keeps_the_worktree_from_being_removed(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        (self.f.wt / "sub").mkdir()
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(self.f.wt / "sub"), "repo": str(self.f.main)}])
+        code, report = self.f.run("--workspace", "wks_1", cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual(self.f.step(report, "workspace")["note"], "path used by another workspace")
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_resume_command_for_a_workspace_rooted_in_a_subdirectory_reaches_the_deferral_not_a_false_conflict(self):
+        (self.f.wt / "sub").mkdir()
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(self.f.wt / "sub"), "repo": str(self.f.main)}])
+        code, report = self.f.run("--workspace", "wks_1", cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual(self.f.step(report, "workspace")["note"], "path used by another workspace")
+        self.assertTrue(self.f.wt.exists())
 
 
 if __name__ == "__main__":

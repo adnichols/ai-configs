@@ -60,7 +60,15 @@ def gh(state, args):
 
 
 def paseo(state, args):
+    if state.get("paseo_down"):
+        fail("paseo daemon is not running")
     if args[:2] == ["workspace", "ls"]:
+        script = state.get("ls_script")
+        if script:
+            listing = script.pop(0) if len(script) > 1 else script[0]
+            if listing is None:
+                fail("paseo daemon is not running")
+            return out(listing)
         return out(state["workspaces"])
     if args[0] == "ls":
         return out(state["agents"])

@@ -6,8 +6,8 @@ needs the worktree's files (the lab claim credential, the demo manifest) runs
 before the step that removes them. The script prints one JSON report on stdout
 and progress on stderr.
 
-Exit codes: 0 complete, 1 usage, 2 refused (nothing changed), 3 a step failed
-(later steps did not run; the same command is safe to repeat), 4 finished what
+Exit codes: 0 complete, 1 usage, 2 refused (nothing changed; the report's `code` names why),
+3 a step failed (later steps did not run; the same command is safe to repeat), 4 finished what
 this process may do but `remaining` lists work for someone else.
 """
 
@@ -27,6 +27,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -42,7 +43,11 @@ PR_FIELDS = "number,state,headRefOid,url,headRepositoryOwner,headRepository"
 
 
 class Refused(Exception):
-    """Preflight found a reason to change nothing."""
+    """Preflight found a reason to change nothing. `code` is the stable REFUSE-* name callers match on."""
+
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        self.code = code
 
 
 class StepFailed(Exception):
@@ -92,6 +97,22 @@ def inside(child: str, parent: str) -> bool:
     return child == parent or child.startswith(parent.rstrip(os.sep) + os.sep)
 
 
+def paseo_managed(path: str) -> bool:
+    """True when `path` is under the Paseo home's worktrees directory, so a Paseo workspace is expected to own it."""
+    return inside(path, real(os.path.join(os.environ.get("PASEO_HOME", "~/.paseo"), "worktrees")))
+
+
+def worktree_token(git_dir: str) -> str | None:
+    """A random id kept in the linked worktree's git admin directory, so a removed and recreated worktree at the same path gets a new one."""
+    file = Path(git_dir) / "worktree-cleanup-token"
+    try:
+        if not file.exists():
+            file.write_text(uuid.uuid4().hex + "\n")
+        return file.read_text().strip() or None
+    except OSError:
+        return None
+
+
 def say(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
@@ -124,6 +145,7 @@ class Snapshot:
     unresolved_demos: list[dict] = field(default_factory=list)
     abandon: str | None = None
     merged_heads: list[str] = field(default_factory=list)
+    token: str | None = None
 
     @property
     def file(self) -> Path:
@@ -141,11 +163,15 @@ class Snapshot:
 
     @staticmethod
     def find_by_workspace(workspace_id: str) -> Snapshot | None:
-        for file in state_dir().glob("*.json"):
-            data = json.loads(file.read_text())
-            if data.get("workspace_id") == workspace_id:
-                return Snapshot(**data)
-        return None
+        found = [Snapshot(**data) for data in (json.loads(f.read_text()) for f in state_dir().glob("*.json")) if data.get("workspace_id") == workspace_id]
+        if len(found) > 1:
+            raise Refused(f"workspace id {workspace_id} appears in {len(found)} cleanup records ({', '.join(s.path for s in found)}); name one by --path", "REFUSE-AMBIGUOUS-RECORD")
+        return found[0] if found else None
+
+    @staticmethod
+    def find(target: str) -> Snapshot | None:
+        """The record a `--show-record` argument names: a workspace id, else a worktree path."""
+        return Snapshot.find_by_workspace(target) or Snapshot.load(real(target))
 
 
 class Cleanup:
@@ -170,16 +196,20 @@ class Cleanup:
 
     def resume_command(self) -> str:
         script = os.path.abspath(__file__)
-        target = f"--workspace {self.snap.workspace_id}" if self.snap.workspace_id else f"--path {shlex.quote(self.snap.path)}"
+        target = f"--path {shlex.quote(self.snap.path)}"
+        workspace_id = self.snap.workspace_id or self.args.workspace
+        if workspace_id:
+            target = f"--workspace {shlex.quote(workspace_id)} {target}"
         abandon = f" --abandon {shlex.quote(self.snap.abandon)}" if self.snap.abandon else ""
         return f"{script} {target}{abandon}"
 
-    def report(self, status: str, exit_code: int, error: str | None = None) -> dict:
+    def report(self, status: str, exit_code: int, error: str | None = None, code: str | None = None) -> dict:
         snap = getattr(self, "snap", None)
         return {
             "schema": 1,
             "status": status,
             "error": error,
+            "code": code,
             "target": snap and {
                 "path": snap.path,
                 "repo": snap.repo,
@@ -206,60 +236,100 @@ class Cleanup:
             data = json.loads(p.out or "[]")
             return data if isinstance(data, list) else data.get("workspaces", [])
         if required:
-            raise required("paseo is not installed" if p.code == 127 else f"paseo workspace ls failed: {p.tail}")
+            message = "paseo is not installed" if p.code == 127 else f"paseo workspace ls failed: {p.tail}"
+            raise Refused(message, "REFUSE-PASEO-UNAVAILABLE") if required is Refused else required(message)
         return []
+
+    def refuse(self, e: Refused) -> tuple[dict, int]:
+        say(f"{e.code}: {e}")
+        return self.report("refused", 2, str(e), e.code), 2
+
+    @staticmethod
+    def worktree_root(path: str) -> str:
+        """The worktree root `path` is in, or its real path when it is not an existing git worktree."""
+        top = sh(["git", "-C", path, "rev-parse", "--show-toplevel"]) if os.path.isdir(path) else None
+        return real(top.out.strip()) if top and top.ok else real(path)
 
     def resolve(self) -> None:
         a = self.args
         path: str | None = None
+        recorded: Snapshot | None = None
         workspace_id = a.workspace
-        if a.path:
+        if workspace_id:
+            match = next((w for w in self.workspaces(Refused) if w.get("workspaceId") == workspace_id), None)
+            try:
+                by_record = None if match else Snapshot.find_by_workspace(workspace_id)
+            except Refused:
+                if not a.path:
+                    raise
+                by_record = None
+            by_id = self.worktree_root(match["cwd"]) if match else (by_record.path if by_record else None)
+            if by_id is None and not a.path:
+                raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record", "REFUSE-UNKNOWN-WORKSPACE")
+            given = self.worktree_root(a.path) if a.path else None
+            if a.path and given != real(a.path) and Snapshot.load(real(a.path)):
+                raise Refused(f"{real(a.path)} has a cleanup record but now resolves into the worktree {given}; not cleaning it up", "REFUSE-TARGET-CONFLICT")
+            if by_id is not None and given and given != by_id:
+                raise Refused(f"workspace {workspace_id} is at {by_id}, not {given}", "REFUSE-TARGET-CONFLICT")
+            if match is None:
+                recorded = by_record or (Snapshot.load(real(a.path)) if a.path else None)
+                if recorded is None:
+                    raise Refused(f"unknown workspace {workspace_id}: not listed by paseo, and {given} has no cleanup record to fall back to", "REFUSE-UNKNOWN-WORKSPACE")
+                workspace_id = None
+            path = by_id or given
+        elif a.path:
             path = real(a.path)
-        elif workspace_id:
-            match = next((w for w in self.workspaces(None) if w.get("workspaceId") == workspace_id), None)
-            snap = Snapshot.find_by_workspace(workspace_id)
-            path = real(match["cwd"]) if match else (snap.path if snap else None)
-            if path is None:
-                raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record")
         else:
             top = sh(["git", "rev-parse", "--show-toplevel"])
             if not top.ok:
                 raise SystemExit("usage: run inside a worktree, or pass --path or --workspace")
             path = real(top.out.strip())
-        self.self_mode = inside(real(os.getcwd()), path)
         self.exists = os.path.isdir(path)
         if self.exists:
-            self.snap = self.snapshot_live(path, workspace_id)
+            live = self.snapshot_live(path, workspace_id)
+            if recorded:
+                if live.path != recorded.path:
+                    raise Refused(f"{path} resolves to the worktree {live.path}, not the recorded {recorded.path}; not cleaning it up", "REFUSE-TARGET-CONFLICT")
+                if recorded.token is None or live.token != recorded.token:
+                    raise Refused(f"{path} cannot be shown to be the worktree recorded for {recorded.workspace_id}: its worktree token is {'missing from the record' if recorded.token is None else 'different'}, so it may be a replacement; run with --path alone to clean it deliberately", "REFUSE-TARGET-CONFLICT")
+                if (live.common_dir, live.branch) != (recorded.common_dir, recorded.branch):
+                    raise Refused(f"{path} now holds {live.branch} in {live.common_dir}, not the recorded {recorded.branch} in {recorded.common_dir}; not cleaning it up", "REFUSE-TARGET-CONFLICT")
+                users = {w.get("workspaceId") for w in self.workspaces(Refused) if w.get("cwd") and inside(real(w["cwd"]), live.path)}
+                users |= {live.workspace_id} - {None}
+                if users - {recorded.workspace_id}:
+                    raise Refused(f"{path} is now used by workspace {', '.join(sorted(map(str, users - {recorded.workspace_id})))}, not {recorded.workspace_id} as recorded; pass that workspace id", "REFUSE-TARGET-CONFLICT")
+                live.workspace_id = recorded.workspace_id
+            self.snap = live
         else:
             snap = Snapshot.load(path)
             if snap is None:
-                raise Refused(f"{path} is gone and has no cleanup record; nothing to resume")
+                raise Refused(f"{path} is gone and has no cleanup record; nothing to resume", "REFUSE-GONE-NO-RECORD")
             self.snap = snap
+        self.self_mode = inside(real(os.getcwd()), self.snap.path)
 
     def snapshot_live(self, path: str, workspace_id: str | None) -> Snapshot:
         git = lambda *a: sh(["git", "-C", path, *a])
         top = git("rev-parse", "--show-toplevel")
         if not top.ok:
-            raise Refused(f"{path} is not a git worktree: {top.tail}")
+            raise Refused(f"{path} is not a git worktree: {top.tail}", "REFUSE-NOT-WORKTREE")
         path = real(top.out.strip())
         git_dir = git("rev-parse", "--path-format=absolute", "--git-dir").out.strip()
         common = git("rev-parse", "--path-format=absolute", "--git-common-dir").out.strip()
         if real(git_dir) == real(common):
-            raise Refused(f"{path} is the main checkout, not a linked worktree")
+            raise Refused(f"{path} is the main checkout, not a linked worktree", "REFUSE-MAIN-CHECKOUT")
         listing = sh(["git", "--git-dir", common, "worktree", "list", "--porcelain"]).out
         for block in listing.split("\n\n"):
             lines = block.splitlines()
             if lines and real(lines[0].removeprefix("worktree ")) == path and any(l.startswith("locked") for l in lines):
-                raise Refused(f"{path} is locked; unlock it deliberately first")
+                raise Refused(f"{path} is locked; unlock it deliberately first", "REFUSE-LOCKED")
         head = git("rev-parse", "HEAD").out.strip()
         branch = git("symbolic-ref", "-q", "--short", "HEAD").out.strip() or None
         meta = sh(["gh", "repo", "view", "--json", "nameWithOwner,defaultBranchRef"], cwd=path)
         if not meta.ok:
-            raise Refused(f"cannot resolve the GitHub repository: {meta.tail}")
+            raise Refused(f"cannot resolve the GitHub repository: {meta.tail}", "REFUSE-NO-REPO")
         info = json.loads(meta.out)
         if workspace_id is None:
-            managed = inside(path, real(os.path.join(os.environ.get("PASEO_HOME", "~/.paseo"), "worktrees")))
-            match = next((w for w in self.workspaces(Refused if managed else None) if w.get("cwd") and real(w["cwd"]) == path), None)
+            match = next((w for w in self.workspaces(Refused if paseo_managed(path) else None) if w.get("cwd") and real(w["cwd"]) == path), None)
             workspace_id = match["workspaceId"] if match else None
         snap = Snapshot(
             path=path,
@@ -270,6 +340,7 @@ class Cleanup:
             common_dir=real(common),
             workspace_id=workspace_id,
             abandon=self.args.abandon,
+            token=worktree_token(git_dir),
         )
         previous = Snapshot.load(path)
         if previous and (previous.repo, previous.branch) == (snap.repo, snap.branch):
@@ -286,7 +357,7 @@ class Cleanup:
             data = json.loads(file.read_text())
             return {"claim_id": str(data["claim_id"]), "lab": str(data["lab"])}
         except (ValueError, KeyError):
-            raise Refused(f"{file} is malformed; release your own orphaned claim through the lab-manager's agent release path (see the ccore2 lab-manager skill)")
+            raise Refused(f"{file} is malformed; release your own orphaned claim through the lab-manager's agent release path (see the ccore2 lab-manager skill)", "REFUSE-CLAIM-MALFORMED")
 
     def git(self, *args: str) -> Proc:
         return sh(["git", "-C", self.snap.path, *args])
@@ -376,7 +447,7 @@ class Cleanup:
         if hard or (relaxable and not snap.abandon):
             problems = hard + relaxable
             hint = "" if hard or snap.abandon else " Pass --abandon <reason> when the work is abandoned or concluded without a merge; keep the lab while a PR using it is open or a prototype review is pending."
-            raise Refused("; ".join(problems) + "." + hint)
+            raise Refused("; ".join(problems) + "." + hint, "REFUSE-PREFLIGHT")
         if relaxable:
             self.preserve_abandoned(relaxable)
         self.collect(claim)
@@ -397,7 +468,7 @@ class Cleanup:
                     tar.add(os.path.join(snap.path, name), arcname=name)
         bundle = git("bundle", "create", str(out / "unpushed.bundle"), "HEAD", "--not", "--remotes")
         if not bundle.ok and "empty bundle" not in (bundle.err + bundle.out).lower():
-            raise Refused(f"could not preserve unpushed commits before abandoning: {bundle.tail}")
+            raise Refused(f"could not preserve unpushed commits before abandoning: {bundle.tail}", "REFUSE-PRESERVE-FAILED")
         self.preserved = [{"kind": "abandon-snapshot", "path": str(out)}]
 
     def collect(self, claim: dict | None) -> None:
@@ -614,7 +685,19 @@ class Cleanup:
         if self.exists and not self.args.abandon and self.git("status", "--porcelain").out.strip():
             raise StepFailed("worktree became dirty after preflight; not removing it")
         workspace_id = snap.workspace_id
-        if workspace_id and any(w.get("workspaceId") == workspace_id for w in self.workspaces(StepFailed)):
+        listing = self.workspaces(StepFailed if (workspace_id or self.args.workspace or paseo_managed(snap.path)) else None)
+        in_tree = [w for w in listing if w.get("cwd") and inside(real(w["cwd"]), snap.path)]
+        owned = next((w for w in in_tree if w.get("workspaceId") == workspace_id and real(w["cwd"]) == snap.path), None)
+        others = [w for w in in_tree if w is not owned]
+        stale = next((w for w in listing if workspace_id and w.get("workspaceId") == workspace_id and w is not owned), None)
+        if stale:
+            say(f"[workspace] {workspace_id} is listed with cwd {stale.get('cwd')}, not {snap.path}; not archiving it")
+        if others and not owned and os.path.isdir(snap.path):
+            self.defer("orchestrator", f"workspace {others[0].get('workspaceId')} uses {others[0].get('cwd')} inside {snap.path}, and the recorded workspace is {workspace_id}; not removing a worktree another workspace uses", None)
+            self.record("workspace", "deferred", workspace_id=workspace_id, note="path used by another workspace")
+            self.archive_pending = True
+            return
+        if owned:
             p = sh(["paseo", "workspace", "archive", workspace_id])
             if not p.ok:
                 raise StepFailed(f"paseo workspace archive failed: {p.tail}")
@@ -694,7 +777,7 @@ class Cleanup:
         try:
             self.resolve()
         except Refused as e:
-            return self.report("refused", 2, str(e)), 2
+            return self.refuse(e)
         lock = open(state_dir() / f"{key_for(self.snap.path)}.lock", "w")
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -706,7 +789,7 @@ class Cleanup:
             for current, step in (("lab", self.step_lab), ("demos", self.step_demos), ("workspace", self.step_workspace), ("remote_branch", self.step_branch)):
                 step()
         except Refused as e:
-            return self.report("refused", 2, str(e)), 2
+            return self.refuse(e)
         except (StepFailed, ValueError, KeyError, OSError) as e:
             self.record(current, "failed", error=str(e) or type(e).__name__)
             return self.report("failed", 3, str(e) or type(e).__name__), 3
@@ -716,11 +799,24 @@ class Cleanup:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    target = ap.add_mutually_exclusive_group()
-    target.add_argument("--path", help="worktree path (default: the worktree containing the current directory)")
-    target.add_argument("--workspace", help="Paseo workspace id")
+    ap.add_argument("--path", help="worktree path (default: the worktree containing the current directory). With --workspace, the fallback when the workspace id matches nothing")
+    ap.add_argument("--workspace", help="Paseo workspace id")
+    ap.add_argument("--show-record", metavar="PATH_OR_WORKSPACE_ID", help="print the cleanup record for a worktree path or workspace id as JSON and exit; changes nothing")
     ap.add_argument("--abandon", metavar="REASON", help="work abandoned or concluded without a merge: discard unmerged or uncommitted work (a snapshot is preserved) and release the lab; never to get past an open PR or a pending prototype review")
     args = ap.parse_args(argv)
+    if args.show_record is not None:
+        if args.path or args.workspace or args.abandon is not None:
+            ap.error("--show-record takes no other option")
+        try:
+            snap = Snapshot.find(args.show_record)
+            if snap is None:
+                raise Refused(f"no cleanup record for {args.show_record}", "REFUSE-NO-RECORD")
+        except Refused as refusal:
+            report, code = Cleanup(args).refuse(refusal)
+            print(json.dumps(report, indent=2))
+            return code
+        print(json.dumps(asdict(snap), indent=2))
+        return 0
     if args.abandon is not None and not args.abandon.strip():
         ap.error("--abandon needs a reason")
     report, code = Cleanup(args).run()
