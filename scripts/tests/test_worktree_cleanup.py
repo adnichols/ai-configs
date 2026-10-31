@@ -735,6 +735,30 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
 
+    def test_a_fallback_never_adopts_an_owner_that_appears_in_one_listing(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        new = {"workspaceId": "wks_new", "cwd": str(self.f.wt), "repo": str(self.f.main)}
+        self.f.fake(ls_script=[[], [new], []])
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_fallback_to_a_record_without_a_workspace_keeps_requiring_paseo_on_resume(self):
+        self.f.fake(workspaces=[])
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(ls_script=[[], [], [], None])
+        code, report = self.f.run("--workspace", "wks_gone", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertIn("--workspace wks_gone", report["resume"])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-PASEO-UNAVAILABLE"), report)
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
     def test_a_workspace_rooted_in_a_subdirectory_keeps_the_worktree_from_being_removed(self):
         code, report = self.f.run(cwd=self.f.wt)
         self.assertEqual(code, 4, report)
