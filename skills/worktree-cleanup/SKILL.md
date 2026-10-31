@@ -12,7 +12,7 @@ user-invocable: true
 python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py            # from inside the worktree
 python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>   # from anywhere
 python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --path <worktree>
-python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id> --path <worktree>   # the path record is the fallback when the id matches nothing
+python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id> --path <worktree>   # the record at the worktree path is the fallback when the id matches nothing; the path must be the recorded worktree root
 python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --show-record <worktree-or-workspace-id>      # prints the cleanup record; changes nothing
 ```
 
@@ -44,7 +44,7 @@ A refusal (exit 2) puts a stable code in the report's `code` field (`null` other
 | Code | Cause |
 | --- | --- |
 | `REFUSE-GONE-NO-RECORD` | The worktree is gone and no cleanup record names it. |
-| `REFUSE-UNKNOWN-WORKSPACE` | `--workspace` names an id paseo does not list and no record holds, and no `--path` was given. |
+| `REFUSE-UNKNOWN-WORKSPACE` | `--workspace` names an id paseo does not list and no record holds, and `--path` is absent or has no record at that worktree path. |
 | `REFUSE-TARGET-CONFLICT` | `--workspace` resolves to a different path than `--path`. |
 | `REFUSE-NOT-WORKTREE`, `REFUSE-MAIN-CHECKOUT`, `REFUSE-LOCKED` | The path is not a linked git worktree, is the main checkout, or is locked. |
 | `REFUSE-NO-REPO` | The GitHub repository cannot be resolved. |

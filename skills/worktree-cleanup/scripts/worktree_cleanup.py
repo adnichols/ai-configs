@@ -179,7 +179,9 @@ class Cleanup:
 
     def resume_command(self) -> str:
         script = os.path.abspath(__file__)
-        target = f"--workspace {self.snap.workspace_id}" if self.snap.workspace_id else f"--path {shlex.quote(self.snap.path)}"
+        target = f"--path {shlex.quote(self.snap.path)}"
+        if self.snap.workspace_id:
+            target = f"--workspace {self.snap.workspace_id} {target}"
         abandon = f" --abandon {shlex.quote(self.snap.abandon)}" if self.snap.abandon else ""
         return f"{script} {target}{abandon}"
 
@@ -234,9 +236,11 @@ class Cleanup:
             by_id = real(match["cwd"]) if match else (snap.path if snap else None)
             if by_id is None and not a.path:
                 raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record", "REFUSE-UNKNOWN-WORKSPACE")
-            if by_id is not None and a.path and real(a.path) != by_id:
+            if by_id is not None and a.path and not inside(real(a.path), by_id):
                 raise Refused(f"workspace {workspace_id} is at {by_id}, not {real(a.path)}", "REFUSE-TARGET-CONFLICT")
             if by_id is None:
+                if Snapshot.load(real(a.path)) is None:
+                    raise Refused(f"unknown workspace {workspace_id}: not listed by paseo, and {real(a.path)} has no cleanup record to fall back to", "REFUSE-UNKNOWN-WORKSPACE")
                 workspace_id = None
             path = by_id or real(a.path)
         elif a.path:
@@ -246,7 +250,6 @@ class Cleanup:
             if not top.ok:
                 raise SystemExit("usage: run inside a worktree, or pass --path or --workspace")
             path = real(top.out.strip())
-        self.self_mode = inside(real(os.getcwd()), path)
         self.exists = os.path.isdir(path)
         if self.exists:
             self.snap = self.snapshot_live(path, workspace_id)
@@ -255,6 +258,7 @@ class Cleanup:
             if snap is None:
                 raise Refused(f"{path} is gone and has no cleanup record; nothing to resume", "REFUSE-GONE-NO-RECORD")
             self.snap = snap
+        self.self_mode = inside(real(os.getcwd()), self.snap.path)
 
     def snapshot_live(self, path: str, workspace_id: str | None) -> Snapshot:
         git = lambda *a: sh(["git", "-C", path, *a])

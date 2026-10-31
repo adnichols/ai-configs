@@ -633,6 +633,30 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
         self.assertTrue(self.f.wt.exists())
 
+    def test_workspace_that_misses_without_a_record_at_the_path_is_refused_and_nothing_changes(self):
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt))
+        self.assertEqual((code, report["code"]), (2, "REFUSE-UNKNOWN-WORKSPACE"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_resume_command_after_the_workspace_id_is_reused_for_another_path_is_refused(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        elsewhere = self.f.tmp / "someone-elses-worktree"
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(elsewhere), "repo": str(self.f.main)}])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+
+    def test_a_subdirectory_of_the_worktree_we_run_in_still_defers_the_archive(self):
+        (self.f.wt / "sub").mkdir()
+        code, report = self.f.run("--path", str(self.f.wt / "sub"), cwd=self.f.wt)
+        self.assertEqual((code, report["status"], report["mode"]), (4, "deferred", "self"), report)
+        self.assertTrue(self.f.wt.exists())
+        self.assertEqual(self.f.calls(), [])
+
 
 if __name__ == "__main__":
     unittest.main()
