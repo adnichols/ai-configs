@@ -88,6 +88,7 @@ bash ~/ai-configs/install.sh --all ~
 - with `--pi`, copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
 - with `--tools` or `--all`, installs Oh My Pi configuration, cross-repository guidance, custom agents, non-credential extensions, the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, and managed Kitty screenshot/Herdr workflow locally; remote OMP deployment is a separate Git pull/install workflow
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
+- moves a managed shared skill whose `skills/<name>` source no longer exists in the checkout to `~/.cache/retired-skills/<name>-<commit>-<date>` and prints one line per install; unmanaged skills are never touched
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
 - with `--update`, first runs `npx skills update -g -y` for globally installed skills tracked by skills.sh, then runs the normal ai-configs sync
 - removes a leftover `~/.pi/agent/APPEND_SYSTEM.md` from older Pi installs; conditional procedures load through skills, and `cmd-create-pr` covers any `gh pr` create/update/comment including forks

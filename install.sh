@@ -1371,6 +1371,94 @@ cleanup_deprecated_shared_skills() {
     fi
 }
 
+# Print "<source>\t<commit>" for an ai-configs-managed repo skill install, and
+# fail for anything else (unmanaged, another repo, package-managed, unreadable).
+managed_repo_skill_provenance() {
+    local skill_dir="$1"
+
+    python3 - "$skill_dir/$AI_CONFIGS_MANAGED_MARKER" <<'PY'
+import json
+import re
+import sys
+
+try:
+    with open(sys.argv[1], 'r', encoding='utf-8') as handle:
+        data = json.load(handle)
+except (OSError, ValueError):
+    raise SystemExit(1)
+
+if not isinstance(data, dict) or data.get("repo") != "ai-configs" or data.get("managed") is not True:
+    raise SystemExit(1)
+source = data.get("source")
+if not isinstance(source, str) or not re.fullmatch(r"skills/[^/]+", source):
+    raise SystemExit(1)
+commit = re.sub(r"[^0-9A-Za-z]", "", str(data.get("commit", "")))[:7] or "unknown"
+print(f"{source}\t{commit}")
+PY
+}
+
+# A managed install whose source left the checkout is no longer in the install
+# matrix, so nothing else would ever touch it and its SKILL.md stays discoverable.
+retire_orphaned_managed_skills() {
+    local shared_skills_dir="$HOME/.agents/skills"
+    local retired_root="$HOME/.cache/retired-skills"
+    local retire_date
+    local path
+    local skill_name
+    local provenance
+    local source_rel
+    local commit
+    local destination
+    local suffix
+    local consumer_path
+    local retired_skills=()
+
+    retire_date="$(date +%Y%m%d)"
+
+    for path in "$shared_skills_dir"/*/; do
+        path="${path%/}"
+        if [ -L "$path" ] || [ ! -d "$path" ]; then
+            continue
+        fi
+        provenance="$(managed_repo_skill_provenance "$path")" || continue
+        IFS=$'\t' read -r source_rel commit <<<"$provenance"
+        if [ -e "$REPO_ROOT/$source_rel" ]; then
+            continue
+        fi
+
+        skill_name="$(basename "$path")"
+        destination="$retired_root/$skill_name-$commit-$retire_date"
+        suffix=1
+        while [ -e "$destination" ]; do
+            suffix=$((suffix + 1))
+            destination="$retired_root/$skill_name-$commit-$retire_date-$suffix"
+        done
+
+        mkdir -p "$retired_root"
+        if ! mv "$path" "$destination"; then
+            echo -e "${RED}Error: Failed to move retired managed skill $skill_name to $destination${NC}" >&2
+            return 1
+        fi
+        retired_skills+=("$skill_name")
+        echo "    - Moved retired managed skill aside: $skill_name (source $source_rel is gone) -> $destination"
+
+        for consumer_path in \
+            "$HOME/.claude/skills/$skill_name" \
+            "$HOME/.cursor/skills/$skill_name" \
+            "$HOME/.config/devin/skills/$skill_name" \
+            "$HOME/.config/opencode/skills/$skill_name" \
+            "$HOME/.pi/agent/skills/$skill_name"; do
+            if [ -L "$consumer_path" ] && [ "$(readlink "$consumer_path")" = "$path" ]; then
+                rm -f "$consumer_path"
+            fi
+        done
+    done
+
+    if [ ${#retired_skills[@]} -gt 0 ]; then
+        remove_skill_lock_entries "${retired_skills[@]}"
+    fi
+}
+
 consumer_entry_is_repo_managed() {
     local entry_path="$1"
     local shared_target="$2"
@@ -1621,6 +1709,7 @@ sync_shared_skills() {
 
     cleanup_deprecated_shared_skills
     cleanup_optional_profile_shared_skills
+    retire_orphaned_managed_skills
 
     sync_consumer_skill_links "claude" "$HOME/.claude/skills" false "$@"
     sync_consumer_skill_links "cursor" "$HOME/.cursor/skills" true cursor "$@"
