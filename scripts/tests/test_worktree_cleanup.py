@@ -62,8 +62,9 @@ class AccountApi(ThreadingHTTPServer):
                 if url.path == f"/accounts/{ACCOUNT}/workers/scripts":
                     return handler.reply(200, {"success": True, "result": [{"id": w} for w in state["workers"]]})
                 if url.path == f"/accounts/{ACCOUNT}/r2/buckets":
-                    eu = handler.headers.get("cf-r2-jurisdiction") == "eu"
-                    names = state["r2_eu"] if eu else state["r2"]
+                    jurisdiction = handler.headers.get("cf-r2-jurisdiction")
+                    eu = jurisdiction is not None
+                    names = state[f"r2_{jurisdiction}"] if jurisdiction else state["r2"]
                     size = state.get("r2_page_size", 1000)
                     start = int(query.get("cursor", ["0"])[0])
                     info = {"total_count": len(names) if eu else state.get("r2_total", len(names))}
@@ -110,6 +111,7 @@ class Fixture:
         self.wt = self.wt.resolve()
         self.bin.mkdir()
         self.api: AccountApi | None = None
+        self.api_base: str | None = None
         for tool in ("gh", "paseo", "pnpm", "wrangler"):
             shim = self.bin / tool
             shim.write_text(f'#!/bin/sh\nexec python3 "{FAKES}" {tool} "$@"\n')
@@ -129,6 +131,7 @@ class Fixture:
                     "d1": [],
                     "r2": [],
                     "r2_eu": [],
+                    "r2_us": [],
                 }
             )
         )
@@ -160,7 +163,7 @@ class Fixture:
         self.fake(workers=[run], d1=[f"{run}-feedback"])
 
     def run(self, *args, cwd=None):
-        env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "FAKE_STATE": str(self.fake_state), "WORKTREE_CLEANUP_STATE_DIR": str(self.state_dir), "PASEO_HOME": str(self.tmp / "paseo"), "XDG_STATE_HOME": str(self.tmp / "xdg"), "CLOUDFLARE_API_BASE": self.api.base}
+        env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "FAKE_STATE": str(self.fake_state), "WORKTREE_CLEANUP_STATE_DIR": str(self.state_dir), "PASEO_HOME": str(self.tmp / "paseo"), "XDG_STATE_HOME": str(self.tmp / "xdg"), "CLOUDFLARE_API_BASE": self.api_base or self.api.base}
         env.pop("PASEO_AGENT_ID", None)
         env.pop("CLOUDFLARE_API_TOKEN", None)
         p = subprocess.run([str(SCRIPT), *args], cwd=cwd or self.main, env=env, capture_output=True, text=True)
@@ -674,7 +677,7 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertIn("R2 buckets", report["error"])
         self.assertEqual(self.unresolved_runs(), [self.RUN])
 
-    def test_a_matching_bucket_on_a_later_page_or_in_the_eu_jurisdiction_holds_the_demo(self):
+    def test_a_matching_bucket_on_a_later_page_or_in_another_jurisdiction_holds_the_demo(self):
         self.unresolved_demo(r2=["unrelated-a", f"{self.RUN}-packs"], r2_page_size=1, r2_total=1)
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual((code, report["status"]), (4, "deferred"), report)
@@ -682,17 +685,59 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.f.fake(r2=[], r2_total=0, r2_eu=[f"{self.RUN}-packs"])
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual((code, report["status"]), (4, "deferred"), report)
-        self.f.fake(r2_eu=[])
+        self.f.fake(r2_eu=[], r2_us=[f"{self.RUN}-packs"])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.f.fake(r2_us=[])
         self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 0)
 
     def test_a_malformed_successful_listing_is_not_read_as_an_empty_account(self):
         self.unresolved_demo()
-        for raw in ({"success": True, "result": {}}, {"success": True, "result": [{"id": 7}]}, ["not", "an", "object"], {"success": False, "errors": [{"code": 1, "message": "no"}]}):
+        for raw in ({"success": True, "result": {"buckets": []}}, {"success": True, "result": {"buckets": []}, "result_info": {"total_count": 0, "cursor": ""}}, {"success": True, "result": {}}, {"success": True, "result": [{"id": 7}]}, ["not", "an", "object"], {"success": False, "errors": [{"code": 1, "message": "no"}]}):
             with self.subTest(raw=raw):
                 self.f.fake(api_raw=raw)
                 code, report = self.f.run("--path", str(self.f.wt))
                 self.assertEqual(code, 3, report)
                 self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_the_account_token_is_never_sent_to_a_plain_http_host_that_is_not_loopback(self):
+        self.unresolved_demo()
+        self.f.api_base = "http://api.example.invalid/client/v4"
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 3, report)
+        self.assertIn("not an https endpoint", report["error"])
+        self.assertEqual(self.f.api.paths, [])
+
+    def test_a_legacy_record_with_a_stringified_non_string_run_is_never_cleared(self):
+        self.unresolved_demo(workers=[self.RUN])
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 4)
+        record = next(self.f.state_dir.glob("*.json"))
+        data = json.loads(record.read_text())
+        data["unresolved_demos"] = [{"run": "123", "reason": "run name missing or malformed", "manifest": data["unresolved_demos"][0]["manifest"]}]
+        record.write_text(json.dumps(data))
+        self.f.fake(workers=[], d1=[], r2=[])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+
+    def test_a_replacement_worktree_does_not_inherit_the_demos_of_the_one_it_replaced(self):
+        self.f.claim()
+        self.unresolved_demo(workers=[self.RUN])
+        self.f.fake(release_fails=True)
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 3)
+        record = next(self.f.state_dir.glob("*.json"))
+        data = json.loads(record.read_text())
+        data["token"] = "token-of-the-removed-worktree"
+        record.write_text(json.dumps(data))
+        shutil.rmtree(self.f.wt / "artifacts")
+        self.f.fake(release_fails=False)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertEqual([c for c in self.f.calls() if c.startswith("delete")], [])
+
+    def test_demo_removed_cannot_be_combined_with_abandon(self):
+        p = subprocess.run([str(SCRIPT), "--path", str(self.f.wt), "--abandon", "dropped", "--demo-removed", self.RUN], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 2)
+        self.assertIn("cannot be combined with --abandon", p.stderr)
 
     def test_a_redirect_from_the_api_is_not_followed_with_the_token(self):
         self.unresolved_demo()

@@ -45,8 +45,9 @@ ABSENT_WORKER = ("10007", "10090", "does not exist")
 RUN_NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
 API_BASE = "https://api.cloudflare.com/client/v4"
 LOCAL_API_HOSTS = ("127.0.0.1", "localhost")
-R2_JURISDICTIONS = (None, "eu")
+R2_JURISDICTIONS = (None, "eu", "us")
 LISTING_PAGES = 100
+RUN_MALFORMED = "run name missing or malformed"
 PR_FIELDS = "number,state,headRefOid,url,headRepositoryOwner,headRepository"
 
 
@@ -365,8 +366,9 @@ class Cleanup:
         previous = Snapshot.load(path)
         if previous and (previous.repo, previous.branch) == (snap.repo, snap.branch):
             snap.claims = previous.claims
-            snap.demos = previous.demos
-            snap.unresolved_demos = previous.unresolved_demos
+            if snap.token is not None and previous.token == snap.token:
+                snap.demos = previous.demos
+                snap.unresolved_demos = previous.unresolved_demos
         return snap
 
     # ---- preflight -------------------------------------------------------
@@ -526,7 +528,7 @@ class Cleanup:
     def demo_problem(self, e: dict) -> str | None:
         run = e.get("run")
         if not isinstance(run, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", run):
-            return "run name missing or malformed"
+            return RUN_MALFORMED
         if e.get("account") != LABS_ACCOUNT_ID:
             return "account is not the Nodaste Labs account"
         if e.get("worker") != run or e.get("d1") not in (None, f"{run}-feedback"):
@@ -741,7 +743,7 @@ class Cleanup:
 
         A record written before `names` existed declares none unless its manifest still exists; then only the run name decides."""
         run = u["run"]
-        if not RUN_NAME.fullmatch(run):
+        if not RUN_NAME.fullmatch(run) or u.get("reason") == RUN_MALFORMED:
             return ["its run name is malformed, so the account cannot be searched for it"]
         declared = set(u.get("names", []))
         manifest = Path(u.get("manifest", ""))
@@ -787,7 +789,7 @@ class Cleanup:
         return {w["id"] for w in scripts}
 
     def r2_names(self) -> set[str]:
-        """Every R2 bucket in the default and EU jurisdictions, following each listing's cursor. FedRAMP buckets are not searched: the Labs account has no access to that jurisdiction."""
+        """Every R2 bucket in the default, EU and US jurisdictions, following each listing's cursor. FedRAMP buckets are not searched: the API answers Access Denied for the Labs account, which has no such jurisdiction."""
         names: set[str] = set()
         for jurisdiction in R2_JURISDICTIONS:
             found: set[str] = set()
@@ -799,12 +801,14 @@ class Cleanup:
                 if not isinstance(buckets, list) or not all(isinstance(b, dict) and isinstance(b.get("name"), str) for b in buckets):
                     raise StepFailed("cannot list the account's R2 buckets: the answer is not a list of buckets")
                 found.update(b["name"] for b in buckets)
-                cursor = info.get("cursor")
-                if not cursor:
+                cursor, total = info.get("cursor"), info.get("total_count")
+                if not isinstance(total, int) or not (cursor is None or (isinstance(cursor, str) and cursor)):
+                    raise StepFailed("cannot list the account's R2 buckets: the answer does not say whether it is complete")
+                if cursor is None:
                     break
             else:
                 raise StepFailed("cannot list the account's R2 buckets: the listing did not end")
-            if info.get("total_count", len(found)) > len(found):
+            if total > len(found):
                 raise StepFailed("cannot list the account's R2 buckets: the answer holds only part of them")
             names |= found
         return names
@@ -942,7 +946,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--workspace", help="Paseo workspace id")
     ap.add_argument("--show-record", metavar="PATH_OR_WORKSPACE_ID", help="print the cleanup record for a worktree path or workspace id as JSON and exit; changes nothing")
     ap.add_argument("--abandon", metavar="REASON", help="work abandoned or concluded without a merge: discard unmerged or uncommitted work (a snapshot is preserved) and release the lab; never to get past an open PR or a pending prototype review")
-    ap.add_argument("--demo-removed", metavar="RUN", action="append", default=[], help="a demo the record holds as unresolved that was removed by hand: refuse (exit 2, nothing changed) while the Labs account still holds a worker, D1 database or R2 bucket named for it; repeat for several runs")
+    ap.add_argument("--demo-removed", metavar="RUN", action="append", default=[], help="a demo the record holds as unresolved that was removed by hand: refuse (exit 2, before any lab, demo, workspace or branch step) while the Labs account still holds a worker, D1 database or R2 bucket named for it; repeat for several runs")
     args = ap.parse_args(argv)
     if args.show_record is not None:
         if args.path or args.workspace or args.abandon is not None or args.demo_removed:
@@ -957,6 +961,8 @@ def main(argv: list[str]) -> int:
             return code
         print(json.dumps(asdict(snap), indent=2))
         return 0
+    if args.demo_removed and args.abandon is not None:
+        ap.error("--demo-removed cannot be combined with --abandon")
     if args.abandon is not None and not args.abandon.strip():
         ap.error("--abandon needs a reason")
     report, code = Cleanup(args).run()
