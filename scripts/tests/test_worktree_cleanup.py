@@ -729,6 +729,11 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(self.f.step(report, "workspace")["status"], "failed")
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
+        self.assertIn("--workspace wks_1", report["resume"])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-PASEO-UNAVAILABLE"), report)
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
 
     def test_a_workspace_rooted_in_a_subdirectory_keeps_the_worktree_from_being_removed(self):
         code, report = self.f.run(cwd=self.f.wt)

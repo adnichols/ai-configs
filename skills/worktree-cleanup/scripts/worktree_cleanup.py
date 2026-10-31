@@ -276,6 +276,8 @@ class Cleanup:
             users = {w.get("workspaceId") for w in self.workspaces(Refused) if w.get("cwd") and inside(real(w["cwd"]), self.snap.path)}
             if users - {recorded.workspace_id}:
                 raise Refused(f"{path} is now used by workspace {', '.join(sorted(map(str, users - {recorded.workspace_id})))}, not {recorded.workspace_id} as recorded; pass that workspace id", "REFUSE-TARGET-CONFLICT")
+            if self.snap.workspace_id is None:
+                self.snap.workspace_id = recorded.workspace_id
         self.self_mode = inside(real(os.getcwd()), self.snap.path)
 
     def snapshot_live(self, path: str, workspace_id: str | None) -> Snapshot:
