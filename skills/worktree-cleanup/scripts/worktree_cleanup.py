@@ -163,11 +163,10 @@ class Snapshot:
 
     @staticmethod
     def find_by_workspace(workspace_id: str) -> Snapshot | None:
-        for file in state_dir().glob("*.json"):
-            data = json.loads(file.read_text())
-            if data.get("workspace_id") == workspace_id:
-                return Snapshot(**data)
-        return None
+        found = [Snapshot(**data) for data in (json.loads(f.read_text()) for f in state_dir().glob("*.json")) if data.get("workspace_id") == workspace_id]
+        if len(found) > 1:
+            raise Refused(f"workspace id {workspace_id} appears in {len(found)} cleanup records ({', '.join(s.path for s in found)}); name one by --path", "REFUSE-AMBIGUOUS-RECORD")
+        return found[0] if found else None
 
     @staticmethod
     def find(target: str) -> Snapshot | None:
@@ -258,7 +257,12 @@ class Cleanup:
         workspace_id = a.workspace
         if workspace_id:
             match = next((w for w in self.workspaces(Refused) if w.get("workspaceId") == workspace_id), None)
-            by_record = Snapshot.find_by_workspace(workspace_id)
+            try:
+                by_record = None if match else Snapshot.find_by_workspace(workspace_id)
+            except Refused:
+                if not a.path:
+                    raise
+                by_record = None
             by_id = self.worktree_root(match["cwd"]) if match else (by_record.path if by_record else None)
             if by_id is None and not a.path:
                 raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record", "REFUSE-UNKNOWN-WORKSPACE")
@@ -803,9 +807,11 @@ def main(argv: list[str]) -> int:
     if args.show_record is not None:
         if args.path or args.workspace or args.abandon is not None:
             ap.error("--show-record takes no other option")
-        snap = Snapshot.find(args.show_record)
-        if snap is None:
-            refusal = Refused(f"no cleanup record for {args.show_record}", "REFUSE-NO-RECORD")
+        try:
+            snap = Snapshot.find(args.show_record)
+            if snap is None:
+                raise Refused(f"no cleanup record for {args.show_record}", "REFUSE-NO-RECORD")
+        except Refused as refusal:
             report, code = Cleanup(args).refuse(refusal)
             print(json.dumps(report, indent=2))
             return code

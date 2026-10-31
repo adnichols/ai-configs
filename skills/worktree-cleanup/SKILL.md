@@ -53,6 +53,7 @@ A refusal (exit 2) puts a stable code in the report's `code` field (`null` other
 | `REFUSE-PREFLIGHT` | Dirty, unmerged, open-PR, running-agent or lab-claim checks failed; `error` lists them. |
 | `REFUSE-PRESERVE-FAILED` | `--abandon` could not save the unpushed commits. |
 | `REFUSE-NO-RECORD` | `--show-record` found no record. |
+| `REFUSE-AMBIGUOUS-RECORD` | More than one cleanup record holds the workspace id (an id reused for another worktree). Name the record by `--path`. |
 
 ## Reading a record
 

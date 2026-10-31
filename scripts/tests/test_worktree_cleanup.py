@@ -612,6 +612,17 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(by_path, by_id)
         self.assertEqual((by_path["workspace_id"], by_path["path"], by_path["branch"], by_path["head"]), ("wks_1", str(self.f.wt), "feat", self.f.head))
 
+    def test_show_record_by_a_workspace_id_held_by_two_records_is_refused_but_a_path_still_works(self):
+        self.record_then_remove_worktree()
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        other = str(self.f.tmp / "other-worktree")
+        key = hashlib.sha256(other.encode()).hexdigest()[:16]
+        (self.f.state_dir / f"{key}.json").write_text(json.dumps({**record, "path": other}))
+        code, report = self.f.run("--show-record", "wks_1")
+        self.assertEqual((code, report["code"]), (2, "REFUSE-AMBIGUOUS-RECORD"), report)
+        code, report = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual((code, report["path"]), (0, str(self.f.wt)), report)
+
     def test_show_record_without_a_record_is_refused_and_changes_nothing(self):
         code, report = self.f.run("--show-record", "wks_1")
         self.assertEqual((code, report["status"], report["code"]), (2, "refused", "REFUSE-NO-RECORD"), report)
