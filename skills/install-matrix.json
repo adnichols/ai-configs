@@ -1021,6 +1021,18 @@
       "defaultInstall": false,
       "profile": "macos"
     },
+    "workstream-owner": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/workstream-owner",
+      "notes": "Starts a WKS workstream owner in any repository the orchestrator manages (start_wks.py: a worktree workspace and a top-level agent, both titled `WKS <name>`) and holds the owner's contract: the repository's delivery skill (verified-build where present) in ADN mode, one validated PR by default, orchestrator coordination through merge.",
+      "sourceType": "repo"
+    },
     "worktree-cleanup": {
       "class": "universal-installable",
       "allowedConsumers": [
