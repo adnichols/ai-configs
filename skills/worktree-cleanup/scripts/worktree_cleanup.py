@@ -267,18 +267,21 @@ class Cleanup:
             path = real(top.out.strip())
         self.exists = os.path.isdir(path)
         if self.exists:
-            self.snap = self.snapshot_live(path, workspace_id)
+            live = self.snapshot_live(path, workspace_id)
+            if recorded:
+                if (live.common_dir, live.branch) != (recorded.common_dir, recorded.branch):
+                    raise Refused(f"{path} now holds a different worktree ({live.branch} in {live.common_dir}) than the recorded {recorded.branch} in {recorded.common_dir}; not cleaning it up", "REFUSE-TARGET-CONFLICT")
+                users = {w.get("workspaceId") for w in self.workspaces(Refused) if w.get("cwd") and inside(real(w["cwd"]), live.path)}
+                users |= {live.workspace_id} - {None}
+                if users - {recorded.workspace_id}:
+                    raise Refused(f"{path} is now used by workspace {', '.join(sorted(map(str, users - {recorded.workspace_id})))}, not {recorded.workspace_id} as recorded; pass that workspace id", "REFUSE-TARGET-CONFLICT")
+                live.workspace_id = recorded.workspace_id
+            self.snap = live
         else:
             snap = Snapshot.load(path)
             if snap is None:
                 raise Refused(f"{path} is gone and has no cleanup record; nothing to resume", "REFUSE-GONE-NO-RECORD")
             self.snap = snap
-        if recorded and self.exists:
-            users = {w.get("workspaceId") for w in self.workspaces(Refused) if w.get("cwd") and inside(real(w["cwd"]), self.snap.path)}
-            users |= {self.snap.workspace_id} - {None}
-            if users - {recorded.workspace_id}:
-                raise Refused(f"{path} is now used by workspace {', '.join(sorted(map(str, users - {recorded.workspace_id})))}, not {recorded.workspace_id} as recorded; pass that workspace id", "REFUSE-TARGET-CONFLICT")
-            self.snap.workspace_id = recorded.workspace_id
         self.self_mode = inside(real(os.getcwd()), self.snap.path)
 
     def snapshot_live(self, path: str, workspace_id: str | None) -> Snapshot:

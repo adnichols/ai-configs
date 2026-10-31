@@ -684,6 +684,7 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.f.fake(workspaces=[{"workspaceId": "wks_new", "cwd": str(self.f.wt / "sub"), "repo": str(self.f.main)}])
         code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
         self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
         self.assertEqual(self.f.calls(), [])
         self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
 
@@ -742,6 +743,17 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.f.fake(ls_script=[[], [new], []])
         code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
         self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_fallback_never_cleans_a_different_worktree_that_now_holds_the_path(self):
+        self.record_then_remove_worktree()
+        git(self.f.main, "worktree", "add", "-b", "replacement", str(self.f.wt))
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
         self.assertEqual(self.f.calls(), [])
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
