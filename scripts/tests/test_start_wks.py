@@ -1,7 +1,8 @@
 """Behavior tests for skills/workstream-owner/scripts/start_wks.py.
 
-Each test builds a real bare origin and its main checkout, and puts the fake paseo of fixtures/start_wks_fakes.py on PATH.
-Git runs for real. The script runs as an agent would run it: with PASEO_AGENT_ID set.
+Each test builds a real bare origin and its main checkout, and puts the fake paseo of fixtures/start_wks_fakes.py on PATH,
+installed as npm installs the real CLI (bin/paseo beside dist/), with fixtures/start_wks_fake_client.mjs as its daemon
+client. Git and node run for real. The script runs as an agent would run it: with PASEO_AGENT_ID set.
 """
 
 import json
@@ -14,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "workstream-owner" / "scripts" / "start_wks.py"
 FAKES = Path(__file__).resolve().parent / "fixtures" / "start_wks_fakes.py"
+FAKE_CLIENT = Path(__file__).resolve().parent / "fixtures" / "start_wks_fake_client.mjs"
 DOC = "https://nodaste.hub.avalandra.com/d/27bff766"
 CALLER = "e7558b3c-0d83-44db-841d-55733165fc30"
 
@@ -36,10 +38,17 @@ class StartWksTest(unittest.TestCase):
         subprocess.run(["git", "-C", str(self.checkout), "commit", "-qm", "init"], check=True, env=self.env)
         git(self.checkout, "push", "-q", "origin", "main")
         self.base = git(self.checkout, "rev-parse", "HEAD")
-        self.bin.mkdir()
-        shim = self.bin / "paseo"
+        cli = self.tmp / "lib" / "node_modules" / "@getpaseo" / "cli"
+        (cli / "bin").mkdir(parents=True)
+        (cli / "dist" / "utils").mkdir(parents=True)
+        (cli / "package.json").write_text('{"type": "module"}\n')
+        shim = cli / "bin" / "paseo"
         shim.write_text(f'#!/bin/sh\nexec python3 "{FAKES}" "$@"\n')
         shim.chmod(0o755)
+        (cli / "dist" / "utils" / "client.js").write_text(f'export {{ connectToDaemon }} from "{FAKE_CLIENT.as_uri()}";\n')
+        (cli / "dist" / "utils" / "daemon-target.js").write_text(f'export {{ selectDaemonTarget }} from "{FAKE_CLIENT.as_uri()}";\n')
+        self.bin.mkdir()
+        (self.bin / "paseo").symlink_to(shim)
         self.env["PATH"] = f"{self.bin}:{os.environ['PATH']}"
         self.write_state(calls=[], workspaces=[], agents=[], remote={}, worktrees=str(self.tmp / "worktrees"))
 
@@ -97,6 +106,29 @@ class StartWksTest(unittest.TestCase):
         for text in (DOC, "Ship behind the toggle.", "skill://workstream-owner", ws["workspaceId"], self.base):
             self.assertIn(text, agent["Prompt"])
         self.assertEqual((report["agent"], report["workspace"], report["base_sha"]), (agent["Id"], ws["workspaceId"], self.base))
+        self.assertEqual((report["pinned"], self.state().get("pins")), (True, [ws["workspaceId"]]))
+
+    def test_a_failed_pin_still_leaves_the_owner_started_and_says_why(self):
+        self.update_state(pin_fails=True)
+
+        code, report = self.start()
+
+        self.assertEqual(code, 0, report)
+        self.assertEqual(report["pinned"], False)
+        self.assertIn("setWorkspacePinned rejected", report["pin_error"])
+        [ws] = self.orchestrator_view()
+        [agent] = self.state()["agents"]
+        self.assertEqual((report["workspace"], report["agent"]), (ws["workspaceId"], agent["Id"]))
+
+    def test_a_paseo_install_without_the_daemon_client_still_starts_the_owner_unpinned(self):
+        (self.tmp / "lib" / "node_modules" / "@getpaseo" / "cli" / "dist" / "utils" / "client.js").unlink()
+
+        code, report = self.start()
+
+        self.assertEqual(code, 0, report)
+        self.assertEqual(report["pinned"], False)
+        self.assertIn("no paseo CLI dist found", report["pin_error"])
+        self.assertEqual([w["workspaceId"] for w in self.orchestrator_view()], [report["workspace"]])
 
     def test_dry_run_creates_nothing(self):
         code, report = self.start("--dry-run")
