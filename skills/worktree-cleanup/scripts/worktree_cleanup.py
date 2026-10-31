@@ -239,15 +239,15 @@ class Cleanup:
         workspace_id = a.workspace
         if workspace_id:
             match = next((w for w in self.workspaces(None) if w.get("workspaceId") == workspace_id), None)
-            snap = Snapshot.find_by_workspace(workspace_id)
-            by_id = real(match["cwd"]) if match else (snap.path if snap else None)
+            by_record = Snapshot.find_by_workspace(workspace_id)
+            by_id = real(match["cwd"]) if match else (by_record.path if by_record else None)
             if by_id is None and not a.path:
                 raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record", "REFUSE-UNKNOWN-WORKSPACE")
             given = self.worktree_root(a.path) if a.path else None
             if by_id is not None and given and given != by_id:
                 raise Refused(f"workspace {workspace_id} is at {by_id}, not {given}", "REFUSE-TARGET-CONFLICT")
-            if by_id is None:
-                recorded = Snapshot.load(given)
+            if match is None:
+                recorded = by_record or Snapshot.load(given)
                 if recorded is None:
                     raise Refused(f"unknown workspace {workspace_id}: not listed by paseo, and {given} has no cleanup record to fall back to", "REFUSE-UNKNOWN-WORKSPACE")
                 workspace_id = None

@@ -675,6 +675,16 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(self.f.calls(), [])
         self.assertTrue(self.f.wt.exists())
 
+    def test_resume_command_after_another_workspace_took_over_the_path_is_refused_and_removes_nothing(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(workspaces=[{"workspaceId": "wks_new", "cwd": str(self.f.wt), "repo": str(self.f.main)}])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
 
 if __name__ == "__main__":
     unittest.main()
