@@ -272,8 +272,10 @@ class Cleanup:
             if snap is None:
                 raise Refused(f"{path} is gone and has no cleanup record; nothing to resume", "REFUSE-GONE-NO-RECORD")
             self.snap = snap
-        if recorded and self.exists and self.snap.workspace_id not in (None, recorded.workspace_id):
-            raise Refused(f"{path} is now owned by workspace {self.snap.workspace_id}, not {recorded.workspace_id} as recorded; pass that workspace id", "REFUSE-TARGET-CONFLICT")
+        if recorded and self.exists:
+            users = {w.get("workspaceId") for w in self.workspaces(Refused) if w.get("cwd") and inside(real(w["cwd"]), self.snap.path)}
+            if users - {recorded.workspace_id}:
+                raise Refused(f"{path} is now used by workspace {', '.join(sorted(map(str, users - {recorded.workspace_id})))}, not {recorded.workspace_id} as recorded; pass that workspace id", "REFUSE-TARGET-CONFLICT")
         self.self_mode = inside(real(os.getcwd()), self.snap.path)
 
     def snapshot_live(self, path: str, workspace_id: str | None) -> Snapshot:

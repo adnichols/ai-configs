@@ -676,6 +676,17 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(self.f.calls(), [])
         self.assertTrue(self.f.wt.exists())
 
+    def test_unknown_workspace_id_with_a_new_workspace_rooted_in_a_subdirectory_is_refused_before_any_release(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.claim()
+        (self.f.wt / "sub").mkdir()
+        self.f.fake(workspaces=[{"workspaceId": "wks_new", "cwd": str(self.f.wt / "sub"), "repo": str(self.f.main)}])
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+
     def test_resume_command_after_another_workspace_took_over_the_path_is_refused_and_removes_nothing(self):
         code, report = self.f.run(cwd=self.f.wt)
         self.assertEqual(code, 4, report)
@@ -712,7 +723,7 @@ class WorktreeCleanupTest(unittest.TestCase):
     def test_a_paseo_outage_after_resolution_fails_the_workspace_step_instead_of_removing_with_git(self):
         code, report = self.f.run(cwd=self.f.wt)
         self.assertEqual(code, 4, report)
-        self.f.fake(ls_script=[[], None])
+        self.f.fake(ls_script=[[], [], [], None])
         code, report = self.f.run("--workspace", "wks_gone", "--path", str(self.f.wt), cwd=self.f.main)
         self.assertEqual((code, report["status"]), (3, "failed"), report)
         self.assertEqual(self.f.step(report, "workspace")["status"], "failed")
