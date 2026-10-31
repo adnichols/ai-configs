@@ -60,7 +60,8 @@ class Fixture:
             json.dumps(
                 {
                     "calls": [],
-                    "prs": [{"number": 7, "url": PR_URL, "state": "MERGED", "headRefName": "feat", "baseRefName": "main", "headRefOid": self.head, "headRepositoryOwner": {"login": "acme"}}],
+                    "origin": str(self.origin),
+                    "prs": [{"number": 7, "url": PR_URL, "state": "MERGED", "headRefName": "feat", "baseRefName": "main", "headRefOid": self.head, "headRepositoryOwner": {"login": "acme"}, "headRepository": {"name": "widgets"}}],
                     "workspaces": [{"workspaceId": "wks_1", "cwd": str(self.wt), "repo": str(self.main)}],
                     "agents": [],
                     "lab_claim": None,
@@ -166,7 +167,7 @@ class WorktreeCleanupTest(unittest.TestCase):
         git(self.f.wt, "commit", "-qm", "after merge")
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual(code, 2)
-        self.assertIn("not the head of a merged PR", report["error"])
+        self.assertIn("not contained in the head of a merged PR", report["error"])
 
     def test_abandon_preserves_work_then_removes_everything(self):
         prs = json.loads(self.f.fake_state.read_text())["prs"]
@@ -414,6 +415,80 @@ class WorktreeCleanupTest(unittest.TestCase):
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual(code, 2, report)
         self.assertIn("still open", report["error"])
+        self.assertTrue(self.f.remote_has_branch())
+
+    def land_as_stack_member(self):
+        """Origin's branch gains 'Merge main' after the worker's head, and the PR merges at that commit."""
+        f = self.f
+        (f.main / "other.txt").write_text("landed on main\n")
+        git(f.main, "add", ".")
+        git(f.main, "commit", "-qm", "main moves")
+        git(f.main, "push", "-q", "origin", "main")
+        member = f.tmp / "member"
+        subprocess.run(["git", "clone", "-q", "-b", "feat", str(f.origin), str(member)], check=True, capture_output=True)
+        git(member, "config", "user.email", "t@example.com")
+        git(member, "config", "user.name", "t")
+        git(member, "merge", "-q", "--no-ff", "-m", "Merge main into feat for stack landing", "origin/main")
+        git(member, "push", "-q", "origin", "feat")
+        merged_head = git(member, "rev-parse", "HEAD")
+        prs = json.loads(f.fake_state.read_text())["prs"]
+        prs[0]["headRefOid"] = merged_head
+        f.fake(prs=prs)
+        return merged_head
+
+    def test_stack_landed_item_cleans_without_abandon_when_the_pr_merged_at_a_head_containing_the_worker_head(self):
+        merged_head = self.land_as_stack_member()
+        self.assertNotEqual(merged_head, self.f.head)
+        code, report = self.f.run("--workspace", "wks_1")
+        self.assertEqual((code, report["status"], report["mode"]), (0, "complete", "normal"), report)
+        self.assertFalse(self.f.wt.exists())
+        self.assertFalse(self.f.remote_has_branch())
+
+    def test_stack_landed_branch_whose_tip_moved_past_the_merged_pr_head_is_kept(self):
+        self.land_as_stack_member()
+        member = self.f.tmp / "member"
+        (member / "late.txt").write_text("pushed after the merge\n")
+        git(member, "add", ".")
+        git(member, "commit", "-qm", "late")
+        git(member, "push", "-q", "origin", "feat")
+        code, report = self.f.run("--workspace", "wks_1")
+        self.assertEqual(code, 4, report)
+        self.assertEqual(self.f.step(report, "remote_branch")["status"], "deferred")
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_branch_is_deleted_when_its_tip_is_the_head_of_any_merged_pr_that_contains_the_worker_head(self):
+        self.land_as_stack_member()
+        member = self.f.tmp / "member"
+        git(member, "merge", "-q", "--no-ff", "-m", "Merge main again", "origin/main")
+        (member / "again.txt").write_text("second merge-main\n")
+        git(member, "add", ".")
+        git(member, "commit", "-qm", "second")
+        git(member, "push", "-q", "origin", "feat")
+        prs = json.loads(self.f.fake_state.read_text())["prs"]
+        prs.append({**prs[0], "number": 11, "url": "https://github.com/acme/widgets/pull/11", "headRefOid": self.f.head})
+        prs[0]["headRefOid"] = git(member, "rev-parse", "HEAD")
+        self.f.fake(prs=prs)
+        code, report = self.f.run("--workspace", "wks_1")
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertFalse(self.f.remote_has_branch())
+
+    def test_merged_pr_from_another_repository_of_the_same_owner_does_not_authorize_cleanup(self):
+        self.land_as_stack_member()
+        prs = json.loads(self.f.fake_state.read_text())["prs"]
+        prs[0]["headRepository"] = {"name": "widgets-fork"}
+        self.f.fake(prs=prs)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 2, report)
+        self.assertTrue(self.f.wt.exists())
+
+    def test_merged_pr_head_that_does_not_contain_the_worker_head_is_refused(self):
+        self.land_as_stack_member()
+        (self.f.wt / "unpushed.txt").write_text("never reached the PR\n")
+        git(self.f.wt, "add", ".")
+        git(self.f.wt, "commit", "-qm", "unpushed")
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 2, report)
+        self.assertIn("not contained in", report["error"])
         self.assertTrue(self.f.remote_has_branch())
 
     def test_abandon_never_deletes_a_remote_branch_holding_unmerged_work(self):

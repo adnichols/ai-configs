@@ -38,7 +38,7 @@ DEMO_MANIFESTS = "artifacts/verified-build/*/demos.json"
 DEMO_NOTES = "artifacts/verified-build/**/*.md"
 DEMO_URL = re.compile(r"https://([a-z0-9][a-z0-9-]*)\.demos\.keramos\.tech")
 ABSENT_WORKER = ("10007", "10090", "does not exist")
-PR_FIELDS = "number,state,headRefOid,url,headRepositoryOwner"
+PR_FIELDS = "number,state,headRefOid,url,headRepositoryOwner,headRepository"
 
 
 class Refused(Exception):
@@ -123,6 +123,7 @@ class Snapshot:
     demos: list[dict] = field(default_factory=list)
     unresolved_demos: list[dict] = field(default_factory=list)
     abandon: str | None = None
+    merged_heads: list[str] = field(default_factory=list)
 
     @property
     def file(self) -> Path:
@@ -304,6 +305,15 @@ class Cleanup:
         p = sh(["gh", "pr", "view", ref, "--repo", self.snap.repo, "--json", "state", "-q", ".state"])
         return p.out.strip() if p.ok else None
 
+    def head_is_in(self, pr_head: str) -> bool:
+        """True when GitHub says the worktree HEAD has no commit outside `pr_head` (compare ahead_by 0).
+
+        A stack landing adds a 'Merge main' commit after the worker's HEAD, so the merged PR head is ahead
+        of it. Any API failure, such as a HEAD that was never pushed, counts as not proven.
+        """
+        p = sh(["gh", "api", f"repos/{self.snap.repo}/compare/{pr_head}...{self.snap.head}", "--jq", ".ahead_by"])
+        return p.ok and p.out.strip() == "0"
+
     def preflight(self) -> None:
         snap = self.snap
         if not self.exists:
@@ -328,18 +338,20 @@ class Cleanup:
                 hard.append(f"cannot list PRs: {prs.tail}")
             else:
                 owner = snap.repo.split("/")[0].lower()
-                mine = [p for p in json.loads(prs.out) if (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner]
+                repo_name = snap.repo.split("/")[1].lower()
+                mine = [p for p in json.loads(prs.out) if (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner and (p.get("headRepository") or {}).get("name", "").lower() == repo_name]
                 exact = [p for p in mine if p["headRefOid"] == snap.head]
                 opened = [p for p in exact if p["state"] == "OPEN"]
-                merged = [p for p in exact if p["state"] == "MERGED"]
+                merged = [p for p in mine if p["state"] == "MERGED" and (p["headRefOid"] == snap.head or self.head_is_in(p["headRefOid"]))]
                 if opened:
                     relaxable.append(f"PR #{opened[0]['number']} from {snap.branch} at this head is still open")
                 elif merged:
-                    snap.pr = merged[0]
+                    snap.pr = max(merged, key=lambda p: p["number"])
+                    snap.merged_heads = sorted({p["headRefOid"] for p in merged})
                 elif exact:
                     relaxable.append(f"PR #{exact[0]['number']} was closed without merging")
                 elif mine:
-                    relaxable.append(f"HEAD {snap.head[:9]} is not the head of a merged PR for {snap.branch}; push it and merge the PR")
+                    relaxable.append(f"HEAD {snap.head[:9]} is not contained in the head of a merged PR for {snap.branch}; push it and merge the PR")
                 else:
                     relaxable.append(f"no PR exists for {snap.branch}; commits may be unpushed")
 
@@ -649,11 +661,14 @@ class Cleanup:
         if tip is None:
             self.record("remote_branch", "already_done", branch=snap.branch)
             return
-        if tip != snap.head:
-            self.defer("operator", f"origin/{snap.branch} is at {tip[:9]}, not the recorded head {snap.head[:9]}; it has commits this cleanup did not check", None)
+        merged_heads = set(snap.merged_heads)
+        if snap.pr and snap.pr.get("state") == "MERGED":
+            merged_heads.add(snap.pr["headRefOid"])
+        if tip != snap.head and tip not in merged_heads:
+            self.defer("operator", f"origin/{snap.branch} is at {tip[:9]}, not the recorded head {snap.head[:9]} or the head of a merged PR; it has commits this cleanup did not check", None)
             self.record("remote_branch", "deferred", branch=snap.branch, remote_tip=tip)
             return
-        if not (snap.pr and snap.pr.get("state") == "MERGED"):
+        if not merged_heads:
             self.defer("operator", f"origin/{snap.branch} kept: it holds work that never merged and the bundle only covers unpushed commits", None)
             self.record("remote_branch", "deferred", branch=snap.branch, note="unmerged work")
             return

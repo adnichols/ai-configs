@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `worktree-cleanup` (WI-1281) cleans a stack-landed item without `--abandon`. A stack landing adds a `Merge main into <branch> for stack landing` commit after the worker's HEAD, so the merged PR head and origin's branch tip are one commit ahead of the recorded HEAD, and preflight and `remote_branch` both refused. Preflight now accepts a merged PR whose head contains the worktree HEAD (`gh api compare/<pr head>...<HEAD>` reports `ahead_by` 0), and `remote_branch` deletes the branch when its tip is the recorded head or the head of any merged PR that contains it. Only PRs whose head repository is this repository count, not a same-owner fork. A HEAD the merged PR does not contain is still refused, and a tip that is neither is still kept for the operator. Installed copies at `~/.agents/skills/worktree-cleanup` update on the next installer run.
+
 ### Added
 
 - Added ADN Verification principle `principle-make-it-observable` ("Make It Observable, and Observe It"). Work nobody watches happen (a background job, a migration, a cleanup, an API whose effect is internal, a performance change) ships with a read that tells a stall from progress and a failure from completion, that works where the change is verified, and that someone makes after deploy before the work closes. Local doctrine, not upstream pstack. Wired into shared and Pi `adn-mode` (trigger and Verification index) and into `repo-agents-bootstrap`, which now has bootstrapped repos route hidden work to the principle and carry an observability line in their PR guidance.

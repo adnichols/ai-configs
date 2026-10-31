@@ -50,6 +50,12 @@ def gh(state, args):
         if not match:
             fail("no pull requests found")
         return print(match[0]["state"])
+    if args[0] == "api" and "/compare/" in args[1]:
+        base, head = args[1].split("/compare/")[1].split("...")
+        count = subprocess.run(["git", "--git-dir", state["origin"], "rev-list", "--count", f"{base}..{head}"], capture_output=True, text=True)
+        if count.returncode != 0:
+            fail("gh: Not Found (HTTP 404)")
+        return print(count.stdout.strip())
     fail(f"fake gh: unsupported {args}")
 
 
