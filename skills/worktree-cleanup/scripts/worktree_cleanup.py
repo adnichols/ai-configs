@@ -284,6 +284,8 @@ class Cleanup:
             if recorded:
                 if recorded.token is None or live.token != recorded.token:
                     raise Refused(f"{path} cannot be shown to be the worktree recorded for {recorded.workspace_id}: its worktree token is {'missing from the record' if recorded.token is None else 'different'}, so it may be a replacement; run with --path alone to clean it deliberately", "REFUSE-TARGET-CONFLICT")
+                if (live.common_dir, live.branch) != (recorded.common_dir, recorded.branch):
+                    raise Refused(f"{path} now holds {live.branch} in {live.common_dir}, not the recorded {recorded.branch} in {recorded.common_dir}; not cleaning it up", "REFUSE-TARGET-CONFLICT")
                 users = {w.get("workspaceId") for w in self.workspaces(Refused) if w.get("cwd") and inside(real(w["cwd"]), live.path)}
                 users |= {live.workspace_id} - {None}
                 if users - {recorded.workspace_id}:
