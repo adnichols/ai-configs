@@ -1411,7 +1411,6 @@ retire_orphaned_managed_skills() {
     local destination
     local suffix
     local consumer_path
-    local consumer_links=()
 
     retire_date="$(date +%Y%m%d)"
 
@@ -1434,8 +1433,8 @@ retire_orphaned_managed_skills() {
             destination="$retired_root/$skill_name-$commit-$retire_date-$suffix"
         done
 
-        # Identify consumer links by what they resolve to, before the move breaks them.
-        consumer_links=()
+        # Drop consumer links and the lock entry before the move: the shared dir is
+        # the only record a retry can find, so it must outlive every other step.
         for consumer_path in \
             "$HOME/.claude/skills/$skill_name" \
             "$HOME/.cursor/skills/$skill_name" \
@@ -1443,9 +1442,10 @@ retire_orphaned_managed_skills() {
             "$HOME/.config/opencode/skills/$skill_name" \
             "$HOME/.pi/agent/skills/$skill_name"; do
             if [ -L "$consumer_path" ] && [ "$consumer_path" -ef "$path" ]; then
-                consumer_links+=("$consumer_path")
+                rm -f "$consumer_path"
             fi
         done
+        remove_skill_lock_entries "$skill_name"
 
         mkdir -p "$retired_root"
         if ! mv "$path" "$destination"; then
@@ -1453,11 +1453,6 @@ retire_orphaned_managed_skills() {
             return 1
         fi
         echo "    - Moved retired managed skill aside: $skill_name (source $source_rel is gone) -> $destination"
-
-        if [ ${#consumer_links[@]} -gt 0 ]; then
-            rm -f "${consumer_links[@]}"
-        fi
-        remove_skill_lock_entries "$skill_name"
     done
 }
 
