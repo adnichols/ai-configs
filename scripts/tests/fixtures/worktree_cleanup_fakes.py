@@ -127,6 +127,13 @@ def wrangler(state, args):
         state["workers"].remove(flag(args, "--name"))
         state["calls"].append(f"delete worker {flag(args, '--name')}")
         return
+    if args[:2] == ["auth", "token"]:
+        return out({"type": "oauth", "token": "fake-token"})
+    if args[:3] == ["r2", "bucket", "list"]:
+        print("Listing buckets...")
+        for name in state.get("r2", []):
+            print(f"name:           {name}\ncreation_date:  2026-10-31T00:00:00.000Z\n")
+        return
     if args[:2] == ["d1", "list"]:
         return out([{"name": n} for n in state["d1"]])
     if args[:2] == ["d1", "export"]:

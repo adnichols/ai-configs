@@ -11,8 +11,10 @@ import os
 import sys
 import subprocess
 import tempfile
+import threading
 import types
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
 
@@ -25,6 +27,34 @@ PR_URL = "https://github.com/acme/widgets/pull/7"
 
 def git(cwd, *args):
     return subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+class AccountApi(ThreadingHTTPServer):
+    """The slice of the Cloudflare REST API the script reads: the worker list of the Labs account, from the fake account state."""
+
+    def __init__(self, fake_state: Path):
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(handler):
+                state = json.loads(fake_state.read_text())
+                ok = handler.path == f"/accounts/{ACCOUNT}/workers/scripts" and handler.headers.get("Authorization") == "Bearer fake-token"
+                if ok and state.get("workers_api_down"):
+                    handler.send_response(500)
+                    handler.end_headers()
+                    return
+                body = json.dumps({"success": True, "result": [{"id": w} for w in state["workers"]]} if ok else {"success": False, "errors": [{"code": 10000, "message": "Authentication error"}]}).encode()
+                handler.send_response(200 if ok else 403)
+                handler.end_headers()
+                handler.wfile.write(body)
+
+            def log_message(handler, *args):
+                pass
+
+        super().__init__(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.serve_forever, daemon=True).start()
+
+    @property
+    def base(self) -> str:
+        return f"http://127.0.0.1:{self.server_address[1]}"
 
 
 class Fixture:
@@ -53,6 +83,7 @@ class Fixture:
         self.head = git(self.wt, "rev-parse", "HEAD")
         self.wt = self.wt.resolve()
         self.bin.mkdir()
+        self.api: AccountApi | None = None
         for tool in ("gh", "paseo", "pnpm", "wrangler"):
             shim = self.bin / tool
             shim.write_text(f'#!/bin/sh\nexec python3 "{FAKES}" {tool} "$@"\n')
@@ -70,9 +101,15 @@ class Fixture:
                     "deprovisions": True,
                     "workers": [],
                     "d1": [],
+                    "r2": [],
                 }
             )
         )
+        self.api = AccountApi(self.fake_state)
+
+    def close(self):
+        self.api.shutdown()
+        self.api.server_close()
 
     def fake(self, **updates):
         state = json.loads(self.fake_state.read_text())
@@ -96,8 +133,9 @@ class Fixture:
         self.fake(workers=[run], d1=[f"{run}-feedback"])
 
     def run(self, *args, cwd=None):
-        env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "FAKE_STATE": str(self.fake_state), "WORKTREE_CLEANUP_STATE_DIR": str(self.state_dir), "PASEO_HOME": str(self.tmp / "paseo"), "XDG_STATE_HOME": str(self.tmp / "xdg")}
+        env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "FAKE_STATE": str(self.fake_state), "WORKTREE_CLEANUP_STATE_DIR": str(self.state_dir), "PASEO_HOME": str(self.tmp / "paseo"), "XDG_STATE_HOME": str(self.tmp / "xdg"), "CLOUDFLARE_API_BASE": self.api.base}
         env.pop("PASEO_AGENT_ID", None)
+        env.pop("CLOUDFLARE_API_TOKEN", None)
         p = subprocess.run([str(SCRIPT), *args], cwd=cwd or self.main, env=env, capture_output=True, text=True)
         try:
             report = json.loads(p.stdout)
@@ -119,6 +157,7 @@ class WorktreeCleanupTest(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.f = Fixture(Path(self._tmp.name).resolve())
+        self.addCleanup(self.f.close)
 
     def test_full_cleanup_in_fixed_order_then_rerun_is_a_noop(self):
         self.f.claim()
@@ -522,9 +561,114 @@ class WorktreeCleanupTest(unittest.TestCase):
         directory = self.f.wt / "artifacts" / "verified-build" / "r1"
         directory.mkdir(parents=True)
         (directory / "run.md").write_text("demo: https://old-proto-20260101-deadbeef.demos.keramos.tech\n")
+        self.f.fake(workers=["old-proto-20260101-deadbeef"])
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual(code, 4, report)
         self.assertIn("old-proto-20260101-deadbeef", report["remaining"][0]["reason"])
+
+    RUN = "proto-20261005-ab12cd34"
+
+    def unresolved_demo(self, run=RUN, **account):
+        """A published demo whose manifest entry fails the worker-name check, with `account` as what the Labs account holds."""
+        self.f.demo(run, worker="renamed-worker")
+        self.f.fake(**{"workers": [], "d1": [], "r2": [], **account})
+
+    def unresolved_runs(self):
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual(code, 0, record)
+        return [u["run"] for u in record["unresolved_demos"]]
+
+    def test_unresolved_demo_clears_on_the_next_run_once_its_resources_are_gone(self):
+        self.unresolved_demo(workers=[f"{self.RUN}-builder-lab001"])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertIn(f"worker {self.RUN}-builder-lab001", report["remaining"][0]["reason"])
+        self.assertEqual(self.unresolved_runs(), [self.RUN])
+        self.f.fake(workers=[])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertEqual(self.f.step(report, "demos")["status"], "done")
+        self.assertEqual(self.f.step(report, "demos")["cleared"], [self.RUN])
+        self.assertEqual(self.unresolved_runs(), [])
+        self.assertEqual([c for c in self.f.calls() if "delete" in c], [])
+
+    def test_unresolved_demo_stays_deferred_while_any_worker_d1_or_r2_name_matches(self):
+        self.unresolved_demo(workers=[f"{self.RUN}-builder-lab001"])
+        self.f.run("--path", str(self.f.wt))
+        for account, present in (
+            ({"workers": [self.RUN]}, f"worker {self.RUN}"),
+            ({"workers": [], "d1": [f"{self.RUN}-feedback"]}, f"D1 database {self.RUN}-feedback"),
+            ({"d1": [], "r2": [f"{self.RUN}-packs-lab017"]}, f"R2 bucket {self.RUN}-packs-lab017"),
+            ({"r2": [], "workers": ["renamed-worker"]}, "worker renamed-worker"),
+        ):
+            with self.subTest(present=present):
+                self.f.fake(**account)
+                code, report = self.f.run("--path", str(self.f.wt))
+                self.assertEqual((code, report["status"]), (4, "deferred"), report)
+                self.assertIn(present, report["remaining"][0]["reason"])
+                self.assertEqual(self.unresolved_runs(), [self.RUN])
+        self.assertEqual([c for c in self.f.calls() if "delete" in c], [])
+
+    def test_names_that_only_share_the_run_name_as_text_do_not_hold_a_demo(self):
+        self.unresolved_demo(workers=[f"{self.RUN}0", f"other-{self.RUN}"], d1=[f"{self.RUN[:-1]}-feedback"], r2=[f"x{self.RUN}"])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+
+    def test_published_url_without_a_manifest_clears_once_the_account_holds_nothing_for_it(self):
+        directory = self.f.wt / "artifacts" / "verified-build" / "r1"
+        directory.mkdir(parents=True)
+        (directory / "run.md").write_text("demo: https://old-proto-20260101-deadbeef.demos.keramos.tech\n")
+        self.f.fake(workers=["old-proto-20260101-deadbeef"])
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 4)
+        self.f.fake(workers=[])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+
+    def test_unresolved_demo_with_a_malformed_run_name_is_never_cleared(self):
+        self.unresolved_demo(run="Bad_Run")
+        for _ in range(2):
+            code, report = self.f.run("--path", str(self.f.wt))
+            self.assertEqual((code, report["status"]), (4, "deferred"), report)
+            self.assertIn("malformed", report["remaining"][0]["reason"])
+
+    def test_unresolved_demo_is_kept_when_the_account_cannot_be_listed(self):
+        self.unresolved_demo()
+        self.f.fake(workers_api_down=True)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 3, report)
+        self.assertIn("worker", report["error"])
+        self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_a_demo_found_again_by_every_run_is_recorded_once(self):
+        self.f.claim()
+        self.unresolved_demo(workers=[self.RUN])
+        self.f.fake(release_fails=True)
+        for _ in range(2):
+            self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 3)
+        self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_demo_removed_is_refused_while_a_matching_worker_d1_or_r2_name_exists(self):
+        self.f.claim()
+        self.unresolved_demo()
+        for account in ({"workers": [f"{self.RUN}-writer-lab017"]}, {"workers": [], "d1": [f"{self.RUN}-feedback"]}, {"d1": [], "r2": [f"{self.RUN}-packs"]}):
+            with self.subTest(account=account):
+                self.f.fake(**account)
+                code, report = self.f.run("--path", str(self.f.wt), "--demo-removed", self.RUN)
+                self.assertEqual((code, report["status"], report["code"]), (2, "refused", "REFUSE-DEMO-PRESENT"), report)
+                self.assertEqual(report["steps"], [])
+                self.assertEqual(self.f.calls(), [])
+                self.assertTrue(self.f.wt.exists() and self.f.remote_has_branch())
+        self.f.fake(r2=[])
+        code, report = self.f.run("--path", str(self.f.wt), "--demo-removed", self.RUN)
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertFalse(self.f.wt.exists())
+        self.assertEqual(self.unresolved_runs(), [])
+
+    def test_demo_removed_refuses_a_run_the_record_does_not_hold_as_unresolved(self):
+        self.unresolved_demo()
+        code, report = self.f.run("--path", str(self.f.wt), "--demo-removed", "no-such-demo")
+        self.assertEqual((code, report["code"]), (2, "REFUSE-NO-SUCH-DEMO"), report)
+        self.assertTrue(self.f.wt.exists())
 
     def test_remote_branch_with_unchecked_commits_is_kept(self):
         other = self.f.tmp / "other"
