@@ -803,6 +803,24 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
         self.assertTrue(self.f.remote_has_branch())
 
+    def test_a_listed_workspace_with_a_recorded_nested_path_never_resolves_to_the_enclosing_worktree(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual(code, 0, record)
+        nested = self.f.wt / "nested"
+        nested.mkdir()
+        nested_real = str(nested.resolve())
+        key = hashlib.sha256(nested_real.encode()).hexdigest()[:16]
+        (self.f.state_dir / f"{key}.json").write_text(json.dumps({**record, "path": nested_real, "workspace_id": "wks_1"}))
+        self.f.claim()
+        code, report = self.f.run("--workspace", "wks_1", "--path", str(nested), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertTrue(self.f.remote_has_branch())
+
     def test_the_resume_command_quotes_an_unmatched_workspace_argument(self):
         self.f.fake(workspaces=[])
         code, report = self.f.run(cwd=self.f.wt)

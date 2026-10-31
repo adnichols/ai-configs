@@ -263,6 +263,8 @@ class Cleanup:
             if by_id is None and not a.path:
                 raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record", "REFUSE-UNKNOWN-WORKSPACE")
             given = self.worktree_root(a.path) if a.path else None
+            if a.path and given != real(a.path) and Snapshot.load(real(a.path)):
+                raise Refused(f"{real(a.path)} has a cleanup record but now resolves into the worktree {given}; not cleaning it up", "REFUSE-TARGET-CONFLICT")
             if by_id is not None and given and given != by_id:
                 raise Refused(f"workspace {workspace_id} is at {by_id}, not {given}", "REFUSE-TARGET-CONFLICT")
             if match is None:
