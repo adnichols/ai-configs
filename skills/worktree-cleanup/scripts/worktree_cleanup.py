@@ -245,7 +245,7 @@ class Cleanup:
         if workspace_id:
             match = next((w for w in self.workspaces(Refused) if w.get("workspaceId") == workspace_id), None)
             by_record = Snapshot.find_by_workspace(workspace_id)
-            by_id = real(match["cwd"]) if match else (by_record.path if by_record else None)
+            by_id = self.worktree_root(match["cwd"]) if match else (by_record.path if by_record else None)
             if by_id is None and not a.path:
                 raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record", "REFUSE-UNKNOWN-WORKSPACE")
             given = self.worktree_root(a.path) if a.path else None
@@ -777,9 +777,10 @@ def main(argv: list[str]) -> int:
             ap.error("--show-record takes no other option")
         snap = Snapshot.find(args.show_record)
         if snap is None:
-            report = Cleanup(args).report("refused", 2, f"no cleanup record for {args.show_record}", "REFUSE-NO-RECORD")
+            refusal = Refused(f"no cleanup record for {args.show_record}", "REFUSE-NO-RECORD")
+            report, code = Cleanup(args).refuse(refusal)
             print(json.dumps(report, indent=2))
-            return 2
+            return code
         print(json.dumps(asdict(snap), indent=2))
         return 0
     if args.abandon is not None and not args.abandon.strip():

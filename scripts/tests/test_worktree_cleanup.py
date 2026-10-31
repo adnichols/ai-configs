@@ -614,6 +614,7 @@ class WorktreeCleanupTest(unittest.TestCase):
     def test_show_record_without_a_record_is_refused_and_changes_nothing(self):
         code, report = self.f.run("--show-record", "wks_1")
         self.assertEqual((code, report["status"], report["code"]), (2, "refused", "REFUSE-NO-RECORD"), report)
+        self.assertIn("REFUSE-NO-RECORD:", self.f.last_stderr)
         code, report = self.f.run("--show-record", str(self.f.wt))
         self.assertEqual((code, report["code"]), (2, "REFUSE-NO-RECORD"), report)
         self.assertEqual(self.f.calls(), [])
@@ -729,6 +730,16 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(self.f.calls(), [])
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
+
+    def test_resume_command_for_a_workspace_rooted_in_a_subdirectory_reaches_the_deferral_not_a_false_conflict(self):
+        (self.f.wt / "sub").mkdir()
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(self.f.wt / "sub"), "repo": str(self.f.main)}])
+        code, report = self.f.run("--workspace", "wks_1", cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual(self.f.step(report, "workspace")["note"], "path used by another workspace")
+        self.assertTrue(self.f.wt.exists())
 
 
 if __name__ == "__main__":
