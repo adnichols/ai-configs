@@ -8,12 +8,14 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import sys
 import subprocess
 import tempfile
 import threading
 import types
 import unittest
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
@@ -30,25 +32,45 @@ def git(cwd, *args):
 
 
 class AccountApi(ThreadingHTTPServer):
-    """The slice of the Cloudflare REST API the script reads: the Labs account's worker and R2 bucket lists, from the fake account state."""
+    """The slice of the Cloudflare REST API the script reads, from the fake account state: the Labs account's worker list and its R2 bucket lists per jurisdiction, paged by cursor."""
 
     def __init__(self, fake_state: Path):
+        self.paths: list[str] = []
+
         class Handler(BaseHTTPRequestHandler):
-            def do_GET(handler):
-                state = json.loads(fake_state.read_text())
-                listing = {
-                    f"/accounts/{ACCOUNT}/workers/scripts": {"success": True, "result": [{"id": w} for w in state["workers"]]},
-                    f"/accounts/{ACCOUNT}/r2/buckets?per_page=1000": {"success": True, "result": {"buckets": [{"name": b} for b in state["r2"]]}, "result_info": {"total_count": state.get("r2_total", len(state["r2"]))}},
-                }.get(handler.path)
-                ok = listing is not None and handler.headers.get("Authorization") == "Bearer fake-token"
-                if ok and state.get("api_down"):
-                    handler.send_response(500)
-                    handler.end_headers()
-                    return
-                body = json.dumps(listing if ok else {"success": False, "errors": [{"code": 10000, "message": "Authentication error"}]}).encode()
-                handler.send_response(200 if ok else 403)
+            def reply(handler, status, body=None, headers=None):
+                handler.send_response(status)
+                for name, value in (headers or {}).items():
+                    handler.send_header(name, value)
                 handler.end_headers()
-                handler.wfile.write(body)
+                if body is not None:
+                    handler.wfile.write(json.dumps(body).encode())
+
+            def do_GET(handler):
+                self.paths.append(handler.path)
+                state = json.loads(fake_state.read_text())
+                url = urllib.parse.urlsplit(handler.path)
+                query = urllib.parse.parse_qs(url.query)
+                if handler.headers.get("Authorization") != "Bearer fake-token":
+                    return handler.reply(403, {"success": False, "errors": [{"code": 10000, "message": "Authentication error"}]})
+                if state.get("api_down"):
+                    return handler.reply(500)
+                if state.get("api_redirect"):
+                    return handler.reply(302, headers={"Location": "/leak"})
+                if "api_raw" in state:
+                    return handler.reply(200, state["api_raw"])
+                if url.path == f"/accounts/{ACCOUNT}/workers/scripts":
+                    return handler.reply(200, {"success": True, "result": [{"id": w} for w in state["workers"]]})
+                if url.path == f"/accounts/{ACCOUNT}/r2/buckets":
+                    eu = handler.headers.get("cf-r2-jurisdiction") == "eu"
+                    names = state["r2_eu"] if eu else state["r2"]
+                    size = state.get("r2_page_size", 1000)
+                    start = int(query.get("cursor", ["0"])[0])
+                    info = {"total_count": len(names) if eu else state.get("r2_total", len(names))}
+                    if start + size < len(names):
+                        info["cursor"] = str(start + size)
+                    return handler.reply(200, {"success": True, "result": {"buckets": [{"name": b} for b in names[start : start + size]]}, "result_info": info})
+                handler.reply(404, {"success": False, "errors": []})
 
             def log_message(handler, *args):
                 pass
@@ -106,6 +128,7 @@ class Fixture:
                     "workers": [],
                     "d1": [],
                     "r2": [],
+                    "r2_eu": [],
                 }
             )
         )
@@ -650,6 +673,95 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(code, 3, report)
         self.assertIn("R2 buckets", report["error"])
         self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_a_matching_bucket_on_a_later_page_or_in_the_eu_jurisdiction_holds_the_demo(self):
+        self.unresolved_demo(r2=["unrelated-a", f"{self.RUN}-packs"], r2_page_size=1, r2_total=1)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertIn(f"R2 bucket {self.RUN}-packs", report["remaining"][0]["reason"])
+        self.f.fake(r2=[], r2_total=0, r2_eu=[f"{self.RUN}-packs"])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.f.fake(r2_eu=[])
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 0)
+
+    def test_a_malformed_successful_listing_is_not_read_as_an_empty_account(self):
+        self.unresolved_demo()
+        for raw in ({"success": True, "result": {}}, {"success": True, "result": [{"id": 7}]}, ["not", "an", "object"], {"success": False, "errors": [{"code": 1, "message": "no"}]}):
+            with self.subTest(raw=raw):
+                self.f.fake(api_raw=raw)
+                code, report = self.f.run("--path", str(self.f.wt))
+                self.assertEqual(code, 3, report)
+                self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_a_redirect_from_the_api_is_not_followed_with_the_token(self):
+        self.unresolved_demo()
+        self.f.fake(api_redirect=True)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 3, report)
+        self.assertNotIn("/leak", self.f.api.paths)
+
+    def test_a_run_name_that_is_not_a_string_is_never_cleared(self):
+        self.f.demo(123, worker="x-run")
+        self.f.fake(workers=[], d1=[])
+        for _ in range(2):
+            code, report = self.f.run("--path", str(self.f.wt))
+            self.assertEqual((code, report["status"]), (4, "deferred"), report)
+            self.assertIn("malformed", report["remaining"][0]["reason"])
+
+    def test_every_name_a_run_declared_holds_it_across_entries_of_the_same_run(self):
+        directory = self.f.wt / "artifacts" / "verified-build" / "r1"
+        directory.mkdir(parents=True)
+        entries = [{"run": self.RUN, "worker": name, "d1": None, "account": ACCOUNT, "url": f"https://{self.RUN}.demos.keramos.tech", "worktree": str(self.f.wt), "branch": "feat"} for name in ("renamed-a", "renamed-b")]
+        (directory / "demos.json").write_text(json.dumps({"demos": entries}))
+        self.f.fake(workers=["renamed-b"])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual(len(report["remaining"]), 1)
+        self.assertIn("worker renamed-b", report["remaining"][0]["reason"])
+        self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_a_record_from_before_declared_names_were_kept_is_checked_by_run_name(self):
+        self.unresolved_demo(workers=[f"{self.RUN}-builder-lab001"])
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 4)
+        record = next(self.f.state_dir.glob("*.json"))
+        data = json.loads(record.read_text())
+        for u in data["unresolved_demos"]:
+            del u["names"]
+        record.write_text(json.dumps(data))
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 4)
+        self.f.fake(workers=[])
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 0)
+
+    def test_a_rerun_in_a_live_worktree_keeps_an_unresolved_demo_whose_manifest_is_gone(self):
+        self.f.claim()
+        self.unresolved_demo(workers=[self.RUN])
+        self.f.fake(release_fails=True)
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 3)
+        shutil.rmtree(self.f.wt / "artifacts")
+        self.f.fake(release_fails=False)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertIn(self.RUN, report["remaining"][0]["reason"])
+
+    def test_demo_removed_names_several_runs_and_refuses_on_any_of_them(self):
+        other = "old-proto-20260101-deadbeef"
+        directory = self.f.wt / "artifacts" / "verified-build" / "r2"
+        directory.mkdir(parents=True)
+        (directory / "run.md").write_text(f"demo: https://{other}.demos.keramos.tech\n")
+        self.unresolved_demo(workers=[f"{other}-writer"])
+        code, report = self.f.run("--path", str(self.f.wt), "--demo-removed", self.RUN, "--demo-removed", other)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-DEMO-PRESENT"), report)
+        self.assertIn(other, report["error"])
+        self.assertNotIn(self.RUN, report["error"])
+        self.f.fake(workers=[])
+        code, report = self.f.run("--path", str(self.f.wt), "--demo-removed", self.RUN, "--demo-removed", other)
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+
+    def test_show_record_takes_no_demo_removed(self):
+        p = subprocess.run([str(SCRIPT), "--show-record", str(self.f.wt), "--demo-removed", self.RUN], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 2)
+        self.assertIn("takes no other option", p.stderr)
 
     def test_a_demo_found_again_by_every_run_is_recorded_once(self):
         self.f.claim()

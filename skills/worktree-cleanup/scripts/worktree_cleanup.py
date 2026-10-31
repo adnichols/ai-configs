@@ -28,6 +28,7 @@ import tarfile
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -43,6 +44,9 @@ DEMO_URL = re.compile(r"https://([a-z0-9][a-z0-9-]*)\.demos\.keramos\.tech")
 ABSENT_WORKER = ("10007", "10090", "does not exist")
 RUN_NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
 API_BASE = "https://api.cloudflare.com/client/v4"
+LOCAL_API_HOSTS = ("127.0.0.1", "localhost")
+R2_JURISDICTIONS = (None, "eu")
+LISTING_PAGES = 100
 PR_FIELDS = "number,state,headRefOid,url,headRepositoryOwner,headRepository"
 
 
@@ -56,6 +60,13 @@ class Refused(Exception):
 
 class StepFailed(Exception):
     """A step did not finish; later steps must not run."""
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: the request carries the account token, and urllib would forward it to the new origin."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
 
 
 @dataclass
@@ -130,6 +141,11 @@ def state_dir() -> Path:
 
 def key_for(path: str) -> str:
     return hashlib.sha256(path.encode()).hexdigest()[:16]
+
+
+def declared_names(entry: dict) -> list[str]:
+    """The worker and D1 names a demos.json entry declares, which may differ from its run name."""
+    return [n for n in (entry.get("worker"), entry.get("d1")) if isinstance(n, str) and n]
 
 
 @dataclass
@@ -349,6 +365,8 @@ class Cleanup:
         previous = Snapshot.load(path)
         if previous and (previous.repo, previous.branch) == (snap.repo, snap.branch):
             snap.claims = previous.claims
+            snap.demos = previous.demos
+            snap.unresolved_demos = previous.unresolved_demos
         return snap
 
     # ---- preflight -------------------------------------------------------
@@ -484,20 +502,26 @@ class Cleanup:
         seen_runs: set[str] = set()
         for manifest in sorted(glob.glob(os.path.join(snap.path, DEMO_MANIFESTS))):
             for entry in json.loads(Path(manifest).read_text()).get("demos", []):
-                run = str(entry.get("run", ""))
+                run = entry.get("run") if isinstance(entry.get("run"), str) else ""
                 seen_runs.add(run)
                 reason = self.demo_problem(entry)
                 if reason:
-                    if not any(u["run"] == run and u["manifest"] == manifest for u in snap.unresolved_demos):
-                        declared = [n for n in (entry.get("worker"), entry.get("d1")) if isinstance(n, str) and n]
-                        snap.unresolved_demos.append({"run": run, "reason": reason, "manifest": manifest, "names": declared})
+                    self.note_unresolved(run, reason, manifest, declared_names(entry))
                 elif run not in known:
                     snap.demos.append({"run": run, "worker": entry["worker"], "d1": entry.get("d1")})
         for note in glob.glob(os.path.join(snap.path, DEMO_NOTES), recursive=True):
             for run in DEMO_URL.findall(Path(note).read_text(errors="replace")):
                 if run not in seen_runs and not any(u["run"] == run for u in snap.unresolved_demos):
-                    snap.unresolved_demos.append({"run": run, "reason": "published URL has no entry in a demos.json manifest", "manifest": note})
+                    snap.unresolved_demos.append({"run": run, "reason": "published URL has no entry in a demos.json manifest", "manifest": note, "names": []})
                     seen_runs.add(run)
+
+    def note_unresolved(self, run: str, reason: str, manifest: str, names: list[str]) -> None:
+        """One record per run, holding every name any of its entries declared."""
+        held = next((u for u in self.snap.unresolved_demos if u["run"] == run), None)
+        if held is None:
+            self.snap.unresolved_demos.append({"run": run, "reason": reason, "manifest": manifest, "names": sorted(set(names))})
+        else:
+            held["names"] = sorted(set(held.get("names", [])) | set(names))
 
     def demo_problem(self, e: dict) -> str | None:
         run = e.get("run")
@@ -685,8 +709,7 @@ class Cleanup:
         snap = self.snap
         if not snap.unresolved_demos:
             return [], {}
-        account = self.account_names()
-        blockers = {u["run"]: self.demo_blockers(u, account) for u in snap.unresolved_demos}
+        blockers = self.demo_blockers_by_run()
         cleared = [run for run, held in blockers.items() if not held]
         if cleared:
             snap.unresolved_demos = [u for u in snap.unresolved_demos if blockers[u["run"]]]
@@ -695,60 +718,96 @@ class Cleanup:
 
     def verify_demo_removed(self) -> None:
         """`--demo-removed <run>`: refuse, before anything changes, unless the record holds that run unresolved and the account holds nothing for it."""
-        wanted = self.args.demo_removed
-        unresolved = {u["run"]: u for u in self.snap.unresolved_demos}
-        for run in wanted:
-            if run not in unresolved:
+        recorded = {u["run"] for u in self.snap.unresolved_demos}
+        for run in self.args.demo_removed:
+            if run not in recorded:
                 raise Refused(f"the cleanup record holds no unresolved demo {run}", "REFUSE-NO-SUCH-DEMO")
+        blockers = self.demo_blockers_by_run()
+        for run in self.args.demo_removed:
+            if blockers[run]:
+                raise Refused(f"demo {run} is still in the Labs account: {'; '.join(blockers[run])}", "REFUSE-DEMO-PRESENT")
+
+    def demo_blockers_by_run(self) -> dict[str, list[str]]:
+        """What the Labs account still holds for each unresolved run, over every record of that run."""
         account = self.account_names()
-        for run in wanted:
-            blockers = self.demo_blockers(unresolved[run], account)
-            if blockers:
-                raise Refused(f"demo {run} is still in the Labs account: {'; '.join(blockers)}", "REFUSE-DEMO-PRESENT")
+        held: dict[str, set[str]] = {}
+        for u in self.snap.unresolved_demos:
+            held.setdefault(u["run"], set()).update(self.demo_blockers(u, account))
+        return {run: sorted(found) for run, found in held.items()}
 
     @staticmethod
     def demo_blockers(u: dict, account: dict[str, set[str]]) -> list[str]:
-        """What keeps an unresolved demo deferred: every account name equal to a name its manifest entry declared, or equal to the run name or starting `<run>-`."""
+        """What keeps an unresolved demo deferred: every account name equal to a name its manifest entry declared, or equal to the run name or starting `<run>-`.
+
+        A record written before `names` existed declares none unless its manifest still exists; then only the run name decides."""
         run = u["run"]
         if not RUN_NAME.fullmatch(run):
             return ["its run name is malformed, so the account cannot be searched for it"]
         declared = set(u.get("names", []))
+        manifest = Path(u.get("manifest", ""))
+        if manifest.name == "demos.json" and manifest.is_file():
+            try:
+                declared.update(n for e in json.loads(manifest.read_text()).get("demos", []) if isinstance(e, dict) and e.get("run") == run for n in declared_names(e))
+            except (OSError, ValueError, AttributeError):
+                pass
         return [f"{kind} {name} still exists" for kind, names in account.items() for name in sorted(names) if name == run or name.startswith(f"{run}-") or name in declared]
 
     def account_names(self) -> dict[str, set[str]]:
         return {"worker": self.worker_names(), "D1 database": self.d1_names(), "R2 bucket": self.r2_names()}
 
-    def account_listing(self, path: str, what: str) -> tuple[list[dict], dict]:
-        """GET one listing of the Labs account over the REST API with wrangler's own credential: wrangler has no list command for Workers and stops `r2 bucket list` at 20 buckets."""
+    def account_listing(self, path: str, what: str, headers: dict[str, str] | None = None) -> tuple[object, dict]:
+        """GET one page of a Labs account listing over the REST API with wrangler's own credential: wrangler has no list command for Workers and stops `r2 bucket list` at 20 buckets."""
+        base = os.environ.get("CLOUDFLARE_API_BASE", API_BASE)
+        origin = urllib.parse.urlsplit(base)
+        if not (origin.scheme == "https" or (origin.scheme == "http" and origin.hostname in LOCAL_API_HOSTS)):
+            raise StepFailed(f"cannot list the account's {what}: {base} is not an https endpoint")
         token = os.environ.get("CLOUDFLARE_API_TOKEN")
         if not token:
             p = self.wrangler("auth", "token", "--json")
             token = parse_json(p.out).get("token") if p.ok else None
             if not isinstance(token, str) or not token:
                 raise StepFailed(f"cannot list the account's {what}: wrangler gave no API token ({p.tail or 'run `wrangler login`'})")
-        url = f"{os.environ.get('CLOUDFLARE_API_BASE', API_BASE)}/accounts/{LABS_ACCOUNT_ID}/{path}"
+        request = urllib.request.Request(f"{base}/accounts/{LABS_ACCOUNT_ID}/{path}", headers={"Authorization": f"Bearer {token}", **(headers or {})})
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"}), timeout=30) as response:
+            with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
                 body = json.load(response)
         except (urllib.error.URLError, OSError, ValueError) as e:
             raise StepFailed(f"cannot list the account's {what}: {e}") from e
-        result = body.get("result")
-        if body.get("success") is not True or result is None:
-            raise StepFailed(f"cannot list the account's {what}: {body.get('errors') or body}")
-        return result, body.get("result_info") or {}
+        if not isinstance(body, dict) or body.get("success") is not True or body.get("result") is None:
+            raise StepFailed(f"cannot list the account's {what}: {(body.get('errors') if isinstance(body, dict) else None) or body}")
+        info = body.get("result_info")
+        return body["result"], info if isinstance(info, dict) else {}
 
     def worker_names(self) -> set[str]:
         scripts, info = self.account_listing("workers/scripts", "workers")
+        if not isinstance(scripts, list) or not all(isinstance(w, dict) and isinstance(w.get("id"), str) for w in scripts):
+            raise StepFailed("cannot list the account's workers: the answer is not a list of Workers")
         if info.get("total_count", len(scripts)) > len(scripts):
             raise StepFailed("cannot list the account's workers: the answer holds only part of them")
-        return {script["id"] for script in scripts}
+        return {w["id"] for w in scripts}
 
     def r2_names(self) -> set[str]:
-        result, info = self.account_listing("r2/buckets?per_page=1000", "R2 buckets")
-        buckets = result.get("buckets", [])
-        if info.get("total_count", len(buckets)) > len(buckets):
-            raise StepFailed("cannot list the account's R2 buckets: the answer holds only part of them")
-        return {bucket["name"] for bucket in buckets}
+        """Every R2 bucket in the default and EU jurisdictions, following each listing's cursor. FedRAMP buckets are not searched: the Labs account has no access to that jurisdiction."""
+        names: set[str] = set()
+        for jurisdiction in R2_JURISDICTIONS:
+            found: set[str] = set()
+            cursor = None
+            for _ in range(LISTING_PAGES):
+                query = "per_page=1000" + (f"&cursor={urllib.parse.quote(cursor)}" if cursor else "")
+                result, info = self.account_listing(f"r2/buckets?{query}", "R2 buckets", {"cf-r2-jurisdiction": jurisdiction} if jurisdiction else None)
+                buckets = result.get("buckets") if isinstance(result, dict) else None
+                if not isinstance(buckets, list) or not all(isinstance(b, dict) and isinstance(b.get("name"), str) for b in buckets):
+                    raise StepFailed("cannot list the account's R2 buckets: the answer is not a list of buckets")
+                found.update(b["name"] for b in buckets)
+                cursor = info.get("cursor")
+                if not cursor:
+                    break
+            else:
+                raise StepFailed("cannot list the account's R2 buckets: the listing did not end")
+            if info.get("total_count", len(found)) > len(found):
+                raise StepFailed("cannot list the account's R2 buckets: the answer holds only part of them")
+            names |= found
+        return names
 
     # ---- workspace -------------------------------------------------------
 
