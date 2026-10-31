@@ -167,7 +167,7 @@ class WorktreeCleanupTest(unittest.TestCase):
         git(self.f.wt, "commit", "-qm", "after merge")
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual(code, 2)
-        self.assertIn("not the head of a merged PR", report["error"])
+        self.assertIn("not contained in the head of a merged PR", report["error"])
 
     def test_abandon_preserves_work_then_removes_everything(self):
         prs = json.loads(self.f.fake_state.read_text())["prs"]

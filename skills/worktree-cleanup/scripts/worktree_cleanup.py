@@ -304,6 +304,15 @@ class Cleanup:
         p = sh(["gh", "pr", "view", ref, "--repo", self.snap.repo, "--json", "state", "-q", ".state"])
         return p.out.strip() if p.ok else None
 
+    def head_is_in(self, pr_head: str) -> bool:
+        """True when GitHub says the worktree HEAD has no commit outside `pr_head` (compare ahead_by 0).
+
+        A stack landing adds a 'Merge main' commit after the worker's HEAD, so the merged PR head is ahead
+        of it. Any API failure, such as a HEAD that was never pushed, counts as not proven.
+        """
+        p = sh(["gh", "api", f"repos/{self.snap.repo}/compare/{pr_head}...{self.snap.head}", "--jq", ".ahead_by"])
+        return p.ok and p.out.strip() == "0"
+
     def preflight(self) -> None:
         snap = self.snap
         if not self.exists:
@@ -331,15 +340,15 @@ class Cleanup:
                 mine = [p for p in json.loads(prs.out) if (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner]
                 exact = [p for p in mine if p["headRefOid"] == snap.head]
                 opened = [p for p in exact if p["state"] == "OPEN"]
-                merged = [p for p in exact if p["state"] == "MERGED"]
+                merged = [p for p in mine if p["state"] == "MERGED" and (p["headRefOid"] == snap.head or self.head_is_in(p["headRefOid"]))]
                 if opened:
                     relaxable.append(f"PR #{opened[0]['number']} from {snap.branch} at this head is still open")
                 elif merged:
-                    snap.pr = merged[0]
+                    snap.pr = max(merged, key=lambda p: p["number"])
                 elif exact:
                     relaxable.append(f"PR #{exact[0]['number']} was closed without merging")
                 elif mine:
-                    relaxable.append(f"HEAD {snap.head[:9]} is not the head of a merged PR for {snap.branch}; push it and merge the PR")
+                    relaxable.append(f"HEAD {snap.head[:9]} is not contained in the head of a merged PR for {snap.branch}; push it and merge the PR")
                 else:
                     relaxable.append(f"no PR exists for {snap.branch}; commits may be unpushed")
 
@@ -649,11 +658,12 @@ class Cleanup:
         if tip is None:
             self.record("remote_branch", "already_done", branch=snap.branch)
             return
-        if tip != snap.head:
-            self.defer("operator", f"origin/{snap.branch} is at {tip[:9]}, not the recorded head {snap.head[:9]}; it has commits this cleanup did not check", None)
+        merged_head = snap.pr["headRefOid"] if snap.pr and snap.pr.get("state") == "MERGED" else None
+        if tip != snap.head and tip != merged_head:
+            self.defer("operator", f"origin/{snap.branch} is at {tip[:9]}, not the recorded head {snap.head[:9]} or the merged PR head; it has commits this cleanup did not check", None)
             self.record("remote_branch", "deferred", branch=snap.branch, remote_tip=tip)
             return
-        if not (snap.pr and snap.pr.get("state") == "MERGED"):
+        if merged_head is None:
             self.defer("operator", f"origin/{snap.branch} kept: it holds work that never merged and the bundle only covers unpushed commits", None)
             self.record("remote_branch", "deferred", branch=snap.branch, note="unmerged work")
             return
