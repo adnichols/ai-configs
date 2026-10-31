@@ -12,9 +12,11 @@ user-invocable: true
 python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py            # from inside the worktree
 python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>   # from anywhere
 python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --path <worktree>
+python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id> --path <worktree>   # the path record is the fallback when the id matches nothing
+python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --show-record <worktree-or-workspace-id>      # prints the cleanup record; changes nothing
 ```
 
-Stdout is one JSON report. Stderr is progress. Re-running is always safe: each step probes the real system (claim file, Cloudflare, `paseo workspace ls`, `git ls-remote`) and reports `already_done` when there is nothing left.
+Stdout is one JSON report. Stderr is progress. Re-running is always safe: each step probes the real system (claim file, Cloudflare, `paseo workspace ls`, `git ls-remote`) and reports `already_done` when there is nothing left. The workspace step archives a Paseo workspace only when `paseo workspace ls` lists the recorded id with a `cwd` equal to the worktree path. A listed id with another `cwd` is left alone.
 
 ## Order
 
@@ -34,6 +36,27 @@ Stdout is one JSON report. Stderr is progress. Re-running is always safe: each s
 | 4 | Done with what this process may do; `remaining` lists work for others. | Run each `remaining[].command` whose `owner` is you. Report the rest. |
 
 `remaining` is built by the run that does the work, so record it from that report: a rerun sees nothing left to do and exits 0. `resume` in the report is the exact command that finishes the job. A worker that runs the script from inside its own worktree gets exit 4 with the archive deferred to the `orchestrator`. The orchestrator runs `resume` (or `--workspace <id>`) from outside. An orchestrator may also run the whole script itself for a child worktree.
+
+## Refusal codes
+
+A refusal (exit 2) puts a stable code in the report's `code` field (`null` otherwise) and prints `<code>: <error>` on stderr. Match the code, never the `error` text.
+
+| Code | Cause |
+| --- | --- |
+| `REFUSE-GONE-NO-RECORD` | The worktree is gone and no cleanup record names it. |
+| `REFUSE-UNKNOWN-WORKSPACE` | `--workspace` names an id paseo does not list and no record holds, and no `--path` was given. |
+| `REFUSE-TARGET-CONFLICT` | `--workspace` resolves to a different path than `--path`. |
+| `REFUSE-NOT-WORKTREE`, `REFUSE-MAIN-CHECKOUT`, `REFUSE-LOCKED` | The path is not a linked git worktree, is the main checkout, or is locked. |
+| `REFUSE-NO-REPO` | The GitHub repository cannot be resolved. |
+| `REFUSE-PASEO-UNAVAILABLE` | The worktree is under the Paseo home and `paseo workspace ls` fails. |
+| `REFUSE-CLAIM-MALFORMED` | `.ccore/lab-claim.json` cannot be parsed. |
+| `REFUSE-PREFLIGHT` | Dirty, unmerged, open-PR, running-agent or lab-claim checks failed; `error` lists them. |
+| `REFUSE-PRESERVE-FAILED` | `--abandon` could not save the unpushed commits. |
+| `REFUSE-NO-RECORD` | `--show-record` found no record. |
+
+## Reading a record
+
+`--show-record <path|workspace-id>` prints the cleanup record as one JSON object (`path`, `repo`, `branch`, `head`, `workspace_id`, `pr`, `claims`, `demos`, `merged_heads`, and the rest) and exits 0, or exits 2 with a report whose `code` is `REFUSE-NO-RECORD`. It takes no other option. Callers read `workspace_id` from it instead of locating the state directory themselves.
 
 ## Authority
 

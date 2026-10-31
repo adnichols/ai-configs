@@ -6,8 +6,8 @@ needs the worktree's files (the lab claim credential, the demo manifest) runs
 before the step that removes them. The script prints one JSON report on stdout
 and progress on stderr.
 
-Exit codes: 0 complete, 1 usage, 2 refused (nothing changed), 3 a step failed
-(later steps did not run; the same command is safe to repeat), 4 finished what
+Exit codes: 0 complete, 1 usage, 2 refused (nothing changed; the report's `code` names why),
+3 a step failed (later steps did not run; the same command is safe to repeat), 4 finished what
 this process may do but `remaining` lists work for someone else.
 """
 
@@ -42,7 +42,11 @@ PR_FIELDS = "number,state,headRefOid,url,headRepositoryOwner,headRepository"
 
 
 class Refused(Exception):
-    """Preflight found a reason to change nothing."""
+    """Preflight found a reason to change nothing. `code` is the stable REFUSE-* name callers match on."""
+
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        self.code = code
 
 
 class StepFailed(Exception):
@@ -147,6 +151,11 @@ class Snapshot:
                 return Snapshot(**data)
         return None
 
+    @staticmethod
+    def find(target: str) -> Snapshot | None:
+        """The record a `--show-record` argument names: a workspace id, else a worktree path."""
+        return Snapshot.find_by_workspace(target) or Snapshot.load(real(target))
+
 
 class Cleanup:
     def __init__(self, args: argparse.Namespace):
@@ -174,12 +183,13 @@ class Cleanup:
         abandon = f" --abandon {shlex.quote(self.snap.abandon)}" if self.snap.abandon else ""
         return f"{script} {target}{abandon}"
 
-    def report(self, status: str, exit_code: int, error: str | None = None) -> dict:
+    def report(self, status: str, exit_code: int, error: str | None = None, code: str | None = None) -> dict:
         snap = getattr(self, "snap", None)
         return {
             "schema": 1,
             "status": status,
             "error": error,
+            "code": code,
             "target": snap and {
                 "path": snap.path,
                 "repo": snap.repo,
@@ -206,21 +216,31 @@ class Cleanup:
             data = json.loads(p.out or "[]")
             return data if isinstance(data, list) else data.get("workspaces", [])
         if required:
-            raise required("paseo is not installed" if p.code == 127 else f"paseo workspace ls failed: {p.tail}")
+            message = "paseo is not installed" if p.code == 127 else f"paseo workspace ls failed: {p.tail}"
+            raise Refused(message, "REFUSE-PASEO-UNAVAILABLE") if required is Refused else required(message)
         return []
+
+    def refuse(self, e: Refused) -> tuple[dict, int]:
+        say(f"{e.code}: {e}")
+        return self.report("refused", 2, str(e), e.code), 2
 
     def resolve(self) -> None:
         a = self.args
         path: str | None = None
         workspace_id = a.workspace
-        if a.path:
-            path = real(a.path)
-        elif workspace_id:
+        if workspace_id:
             match = next((w for w in self.workspaces(None) if w.get("workspaceId") == workspace_id), None)
             snap = Snapshot.find_by_workspace(workspace_id)
-            path = real(match["cwd"]) if match else (snap.path if snap else None)
-            if path is None:
-                raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record")
+            by_id = real(match["cwd"]) if match else (snap.path if snap else None)
+            if by_id is None and not a.path:
+                raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record", "REFUSE-UNKNOWN-WORKSPACE")
+            if by_id is not None and a.path and real(a.path) != by_id:
+                raise Refused(f"workspace {workspace_id} is at {by_id}, not {real(a.path)}", "REFUSE-TARGET-CONFLICT")
+            if by_id is None:
+                workspace_id = None
+            path = by_id or real(a.path)
+        elif a.path:
+            path = real(a.path)
         else:
             top = sh(["git", "rev-parse", "--show-toplevel"])
             if not top.ok:
@@ -233,29 +253,29 @@ class Cleanup:
         else:
             snap = Snapshot.load(path)
             if snap is None:
-                raise Refused(f"{path} is gone and has no cleanup record; nothing to resume")
+                raise Refused(f"{path} is gone and has no cleanup record; nothing to resume", "REFUSE-GONE-NO-RECORD")
             self.snap = snap
 
     def snapshot_live(self, path: str, workspace_id: str | None) -> Snapshot:
         git = lambda *a: sh(["git", "-C", path, *a])
         top = git("rev-parse", "--show-toplevel")
         if not top.ok:
-            raise Refused(f"{path} is not a git worktree: {top.tail}")
+            raise Refused(f"{path} is not a git worktree: {top.tail}", "REFUSE-NOT-WORKTREE")
         path = real(top.out.strip())
         git_dir = git("rev-parse", "--path-format=absolute", "--git-dir").out.strip()
         common = git("rev-parse", "--path-format=absolute", "--git-common-dir").out.strip()
         if real(git_dir) == real(common):
-            raise Refused(f"{path} is the main checkout, not a linked worktree")
+            raise Refused(f"{path} is the main checkout, not a linked worktree", "REFUSE-MAIN-CHECKOUT")
         listing = sh(["git", "--git-dir", common, "worktree", "list", "--porcelain"]).out
         for block in listing.split("\n\n"):
             lines = block.splitlines()
             if lines and real(lines[0].removeprefix("worktree ")) == path and any(l.startswith("locked") for l in lines):
-                raise Refused(f"{path} is locked; unlock it deliberately first")
+                raise Refused(f"{path} is locked; unlock it deliberately first", "REFUSE-LOCKED")
         head = git("rev-parse", "HEAD").out.strip()
         branch = git("symbolic-ref", "-q", "--short", "HEAD").out.strip() or None
         meta = sh(["gh", "repo", "view", "--json", "nameWithOwner,defaultBranchRef"], cwd=path)
         if not meta.ok:
-            raise Refused(f"cannot resolve the GitHub repository: {meta.tail}")
+            raise Refused(f"cannot resolve the GitHub repository: {meta.tail}", "REFUSE-NO-REPO")
         info = json.loads(meta.out)
         if workspace_id is None:
             managed = inside(path, real(os.path.join(os.environ.get("PASEO_HOME", "~/.paseo"), "worktrees")))
@@ -286,7 +306,7 @@ class Cleanup:
             data = json.loads(file.read_text())
             return {"claim_id": str(data["claim_id"]), "lab": str(data["lab"])}
         except (ValueError, KeyError):
-            raise Refused(f"{file} is malformed; release your own orphaned claim through the lab-manager's agent release path (see the ccore2 lab-manager skill)")
+            raise Refused(f"{file} is malformed; release your own orphaned claim through the lab-manager's agent release path (see the ccore2 lab-manager skill)", "REFUSE-CLAIM-MALFORMED")
 
     def git(self, *args: str) -> Proc:
         return sh(["git", "-C", self.snap.path, *args])
@@ -376,7 +396,7 @@ class Cleanup:
         if hard or (relaxable and not snap.abandon):
             problems = hard + relaxable
             hint = "" if hard or snap.abandon else " Pass --abandon <reason> when the work is abandoned or concluded without a merge; keep the lab while a PR using it is open or a prototype review is pending."
-            raise Refused("; ".join(problems) + "." + hint)
+            raise Refused("; ".join(problems) + "." + hint, "REFUSE-PREFLIGHT")
         if relaxable:
             self.preserve_abandoned(relaxable)
         self.collect(claim)
@@ -397,7 +417,7 @@ class Cleanup:
                     tar.add(os.path.join(snap.path, name), arcname=name)
         bundle = git("bundle", "create", str(out / "unpushed.bundle"), "HEAD", "--not", "--remotes")
         if not bundle.ok and "empty bundle" not in (bundle.err + bundle.out).lower():
-            raise Refused(f"could not preserve unpushed commits before abandoning: {bundle.tail}")
+            raise Refused(f"could not preserve unpushed commits before abandoning: {bundle.tail}", "REFUSE-PRESERVE-FAILED")
         self.preserved = [{"kind": "abandon-snapshot", "path": str(out)}]
 
     def collect(self, claim: dict | None) -> None:
@@ -614,7 +634,11 @@ class Cleanup:
         if self.exists and not self.args.abandon and self.git("status", "--porcelain").out.strip():
             raise StepFailed("worktree became dirty after preflight; not removing it")
         workspace_id = snap.workspace_id
-        if workspace_id and any(w.get("workspaceId") == workspace_id for w in self.workspaces(StepFailed)):
+        listed = [w for w in self.workspaces(StepFailed) if w.get("workspaceId") == workspace_id] if workspace_id else []
+        owned = next((w for w in listed if w.get("cwd") and real(w["cwd"]) == snap.path), None)
+        if listed and not owned:
+            say(f"[workspace] {workspace_id} is listed with cwd {listed[0].get('cwd')}, not {snap.path}; not archiving it")
+        if owned:
             p = sh(["paseo", "workspace", "archive", workspace_id])
             if not p.ok:
                 raise StepFailed(f"paseo workspace archive failed: {p.tail}")
@@ -694,7 +718,7 @@ class Cleanup:
         try:
             self.resolve()
         except Refused as e:
-            return self.report("refused", 2, str(e)), 2
+            return self.refuse(e)
         lock = open(state_dir() / f"{key_for(self.snap.path)}.lock", "w")
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -706,7 +730,7 @@ class Cleanup:
             for current, step in (("lab", self.step_lab), ("demos", self.step_demos), ("workspace", self.step_workspace), ("remote_branch", self.step_branch)):
                 step()
         except Refused as e:
-            return self.report("refused", 2, str(e)), 2
+            return self.refuse(e)
         except (StepFailed, ValueError, KeyError, OSError) as e:
             self.record(current, "failed", error=str(e) or type(e).__name__)
             return self.report("failed", 3, str(e) or type(e).__name__), 3
@@ -716,11 +740,21 @@ class Cleanup:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    target = ap.add_mutually_exclusive_group()
-    target.add_argument("--path", help="worktree path (default: the worktree containing the current directory)")
-    target.add_argument("--workspace", help="Paseo workspace id")
+    ap.add_argument("--path", help="worktree path (default: the worktree containing the current directory). With --workspace, the fallback when the workspace id matches nothing")
+    ap.add_argument("--workspace", help="Paseo workspace id")
+    ap.add_argument("--show-record", metavar="PATH_OR_WORKSPACE_ID", help="print the cleanup record for a worktree path or workspace id as JSON and exit; changes nothing")
     ap.add_argument("--abandon", metavar="REASON", help="work abandoned or concluded without a merge: discard unmerged or uncommitted work (a snapshot is preserved) and release the lab; never to get past an open PR or a pending prototype review")
     args = ap.parse_args(argv)
+    if args.show_record is not None:
+        if args.path or args.workspace or args.abandon is not None:
+            ap.error("--show-record takes no other option")
+        snap = Snapshot.find(args.show_record)
+        if snap is None:
+            report = Cleanup(args).report("refused", 2, f"no cleanup record for {args.show_record}", "REFUSE-NO-RECORD")
+            print(json.dumps(report, indent=2))
+            return 2
+        print(json.dumps(asdict(snap), indent=2))
+        return 0
     if args.abandon is not None and not args.abandon.strip():
         ap.error("--abandon needs a reason")
     report, code = Cleanup(args).run()

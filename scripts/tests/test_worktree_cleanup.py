@@ -559,6 +559,79 @@ class WorktreeCleanupTest(unittest.TestCase):
         code, report = self.f.run("--path", str(self.f.tmp / "never-existed"))
         self.assertEqual(code, 2)
         self.assertIn("nothing to resume", report["error"])
+        self.assertEqual(report["code"], "REFUSE-GONE-NO-RECORD")
+        self.assertIn("REFUSE-GONE-NO-RECORD", self.f.last_stderr)
+
+    def record_then_remove_worktree(self):
+        """Run inside the target so preflight saves the record and the archive is deferred, then drop the worktree."""
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        git(self.f.main, "worktree", "remove", "--force", str(self.f.wt))
+
+    def test_workspace_with_the_recorded_id_but_a_different_cwd_is_not_archived(self):
+        self.record_then_remove_worktree()
+        elsewhere = self.f.tmp / "someone-elses-worktree"
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(elsewhere), "repo": str(self.f.main)}])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertEqual(self.f.step(report, "workspace")["status"], "already_done")
+        self.assertNotIn("archive wks_1", self.f.calls())
+        self.assertEqual([w["workspaceId"] for w in json.loads(self.f.fake_state.read_text())["workspaces"]], ["wks_1"])
+
+    def test_workspace_with_the_recorded_id_and_the_recorded_cwd_is_archived(self):
+        self.record_then_remove_worktree()
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(self.f.wt), "repo": str(self.f.main)}], archive_keeps_dir=True)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertEqual(self.f.step(report, "workspace")["status"], "done")
+        self.assertIn("archive wks_1", self.f.calls())
+
+    def test_every_refusal_carries_a_stable_code(self):
+        (self.f.wt / "scratch.txt").write_text("uncommitted\n")
+        cases = [
+            (("--path", str(self.f.wt)), "REFUSE-PREFLIGHT"),
+            (("--path", str(self.f.main)), "REFUSE-MAIN-CHECKOUT"),
+            (("--path", str(self.f.tmp / "plain")), "REFUSE-GONE-NO-RECORD"),
+            (("--workspace", "wks_nope"), "REFUSE-UNKNOWN-WORKSPACE"),
+        ]
+        for args, expected in cases:
+            code, report = self.f.run(*args)
+            self.assertEqual((code, report["status"], report["code"]), (2, "refused", expected), report)
+
+    def test_a_completed_run_has_no_refusal_code(self):
+        code, report = self.f.run("--workspace", "wks_1")
+        self.assertEqual((code, report["code"]), (0, None), report)
+
+    def test_show_record_prints_the_record_by_path_or_workspace_id(self):
+        self.record_then_remove_worktree()
+        self.f.fake(workspaces=[])
+        by_path_code, by_path = self.f.run("--show-record", str(self.f.wt))
+        by_id_code, by_id = self.f.run("--show-record", "wks_1")
+        self.assertEqual((by_path_code, by_id_code), (0, 0))
+        self.assertEqual(by_path, by_id)
+        self.assertEqual((by_path["workspace_id"], by_path["path"], by_path["branch"], by_path["head"]), ("wks_1", str(self.f.wt), "feat", self.f.head))
+
+    def test_show_record_without_a_record_is_refused_and_changes_nothing(self):
+        code, report = self.f.run("--show-record", "wks_1")
+        self.assertEqual((code, report["status"], report["code"]), (2, "refused", "REFUSE-NO-RECORD"), report)
+        code, report = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual((code, report["code"]), (2, "REFUSE-NO-RECORD"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+
+    def test_workspace_that_misses_falls_back_to_the_record_found_by_path(self):
+        self.record_then_remove_worktree()
+        self.f.fake(workspaces=[])
+        code, report = self.f.run("--workspace", "wks_renamed")
+        self.assertEqual((code, report["code"]), (2, "REFUSE-UNKNOWN-WORKSPACE"), report)
+        code, report = self.f.run("--workspace", "wks_renamed", "--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertFalse(self.f.remote_has_branch())
+
+    def test_workspace_and_path_that_name_different_worktrees_are_refused(self):
+        code, report = self.f.run("--workspace", "wks_1", "--path", str(self.f.main))
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertTrue(self.f.wt.exists())
 
 
 if __name__ == "__main__":
