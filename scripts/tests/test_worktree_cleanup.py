@@ -750,6 +750,32 @@ class WorktreeCleanupTest(unittest.TestCase):
     def test_an_invalid_entry_after_a_valid_one_for_the_same_run_deletes_nothing(self):
         self.run_with_a_valid_and_an_invalid_entry_for_one_run(invalid_first=False)
 
+    def conflicted_legacy_record(self, live):
+        """A record that holds one run both as a deletable demo and as unresolved, as the base version could write, with its manifest gone."""
+        if live:
+            self.f.claim()
+        self.unresolved_demo(workers=[self.RUN])
+        if live:
+            self.f.fake(release_fails=True)
+            self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 3)
+            shutil.rmtree(self.f.wt / "artifacts")
+            self.f.fake(release_fails=False)
+        else:
+            self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 4)
+        record = next(self.f.state_dir.glob("*.json"))
+        data = json.loads(record.read_text())
+        data["demos"] = [{"run": self.RUN, "worker": self.RUN, "d1": None}]
+        record.write_text(json.dumps(data))
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual([c for c in self.f.calls() if c.startswith("delete")], [])
+
+    def test_a_record_holding_a_run_as_demo_and_as_unresolved_deletes_nothing_in_a_live_worktree(self):
+        self.conflicted_legacy_record(live=True)
+
+    def test_a_record_holding_a_run_as_demo_and_as_unresolved_deletes_nothing_once_the_worktree_is_gone(self):
+        self.conflicted_legacy_record(live=False)
+
     def test_a_manifest_that_turns_a_recorded_valid_demo_unresolved_deletes_nothing(self):
         self.f.claim()
         self.f.demo()

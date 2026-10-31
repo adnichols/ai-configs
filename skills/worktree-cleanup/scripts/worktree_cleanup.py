@@ -680,7 +680,10 @@ class Cleanup:
     def step_demos(self) -> None:
         snap = self.snap
         removed: list[str] = []
+        unresolved = {u["run"] for u in snap.unresolved_demos}
         for d in snap.demos:
+            if d["run"] in unresolved:
+                continue
             if self.worker_exists(d["worker"]):
                 say(f"deleting demo worker {d['worker']}")
                 p = self.wrangler("delete", "--name", d["worker"], "--force")
@@ -720,7 +723,7 @@ class Cleanup:
         return cleared, {run: held for run, held in blockers.items() if held}
 
     def verify_demo_removed(self) -> None:
-        """`--demo-removed <run>`: refuse, before anything changes, unless the record holds that run unresolved and the account holds nothing for it."""
+        """`--demo-removed <run>`: refuse, before the lab, demo, workspace and branch steps, unless the record holds that run unresolved and the account holds nothing for it."""
         recorded = {u["run"] for u in self.snap.unresolved_demos}
         for run in self.args.demo_removed:
             if run not in recorded:
