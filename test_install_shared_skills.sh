@@ -903,13 +903,16 @@ test_managed_skill_whose_source_was_removed_is_moved_aside() {
   retired_root="$home/.cache/retired-skills"
 
   seed_managed_marker "$home/.agents/skills/gone-skill" ai-configs skills/gone-skill 115f530abcdef0123456789
+  seed_managed_marker "$home/.agents/skills/gone-two" ai-configs skills/gone-two 115f530abcdef0123456789
+  mkdir -p "$retired_root"
+  ln -s "$home/missing-target" "$retired_root/gone-two-115f530-$(date +%Y%m%d)"
   seed_managed_marker "$home/.agents/skills/other-repo-skill" other-repo skills/other-repo-skill 115f530abcdef0123456789
   seed_managed_marker "$home/.agents/skills/external-gone" ai-configs 'external-package:example/pkg#external-gone' 115f530abcdef0123456789
   seed_managed_marker "$home/.agents/skills/linear" ai-configs skills/linear 115f530abcdef0123456789
   mkdir -p "$home/.agents/skills/hand-made" "$home/.claude/skills"
   printf 'user-owned skill\n' > "$home/.agents/skills/hand-made/SKILL.md"
-  ln -s "$home/.agents/skills/gone-skill" "$home/.claude/skills/gone-skill"
-  printf '{"skills":{"gone-skill":{"source":"x"},"hand-made":{"source":"user"}}}\n' > "$home/.agents/.skill-lock.json"
+  ln -s ../../.agents/skills/gone-skill "$home/.claude/skills/gone-skill"
+  printf '{"skills":{"gone-skill":{"source":"x"},"gone-two":{"source":"x"},"hand-made":{"source":"user"}}}\n' > "$home/.agents/.skill-lock.json"
 
   run_installer_capture "$home" "$output_file" --skills || return 1
 
@@ -918,16 +921,17 @@ test_managed_skill_whose_source_was_removed_is_moved_aside() {
   moved="$(find "$retired_root" -mindepth 1 -maxdepth 1 -type d -name "gone-skill-115f530-$(date +%Y%m%d)" | head -n 1)"
   [[ -n "$moved" ]] || return 1
   assert_file_contains "$moved/SKILL.md" '# gone-skill' || return 1
-  [[ "$(grep -c 'Moved retired managed skill aside' "$output_file")" == 1 ]] || return 1
+  [[ "$(grep -c 'Moved retired managed skill aside' "$output_file")" == 2 ]] || return 1
+  [[ -f "$retired_root/gone-two-115f530-$(date +%Y%m%d)-2/SKILL.md" ]] || return 1
   assert_file_contains "$output_file" "gone-skill" || return 1
-  assert_file_not_contains "$home/.agents/.skill-lock.json" 'gone-skill' || return 1
+  assert_file_not_contains "$home/.agents/.skill-lock.json" 'gone-' || return 1
   assert_file_contains "$home/.agents/.skill-lock.json" 'hand-made' || return 1
 
   assert_file_contains "$home/.agents/skills/other-repo-skill/SKILL.md" '# other-repo-skill' || return 1
   assert_file_contains "$home/.agents/skills/external-gone/SKILL.md" '# external-gone' || return 1
   assert_file_contains "$home/.agents/skills/hand-made/SKILL.md" 'user-owned skill' || return 1
   [[ -f "$home/.agents/skills/linear/SKILL.md" ]] || return 1
-  [[ "$(find "$retired_root" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" == 1 ]] || return 1
+  [[ "$(find "$retired_root" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" == 3 ]] || return 1
 
   retired_count="$(find "$retired_root" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')"
   run_installer_capture "$home" "$second_file" --skills || return 1

@@ -1411,7 +1411,7 @@ retire_orphaned_managed_skills() {
     local destination
     local suffix
     local consumer_path
-    local retired_skills=()
+    local consumer_links=()
 
     retire_date="$(date +%Y%m%d)"
 
@@ -1429,9 +1429,22 @@ retire_orphaned_managed_skills() {
         skill_name="$(basename "$path")"
         destination="$retired_root/$skill_name-$commit-$retire_date"
         suffix=1
-        while [ -e "$destination" ]; do
+        while [ -e "$destination" ] || [ -L "$destination" ]; do
             suffix=$((suffix + 1))
             destination="$retired_root/$skill_name-$commit-$retire_date-$suffix"
+        done
+
+        # Identify consumer links by what they resolve to, before the move breaks them.
+        consumer_links=()
+        for consumer_path in \
+            "$HOME/.claude/skills/$skill_name" \
+            "$HOME/.cursor/skills/$skill_name" \
+            "$HOME/.config/devin/skills/$skill_name" \
+            "$HOME/.config/opencode/skills/$skill_name" \
+            "$HOME/.pi/agent/skills/$skill_name"; do
+            if [ -L "$consumer_path" ] && [ "$consumer_path" -ef "$path" ]; then
+                consumer_links+=("$consumer_path")
+            fi
         done
 
         mkdir -p "$retired_root"
@@ -1439,24 +1452,13 @@ retire_orphaned_managed_skills() {
             echo -e "${RED}Error: Failed to move retired managed skill $skill_name to $destination${NC}" >&2
             return 1
         fi
-        retired_skills+=("$skill_name")
         echo "    - Moved retired managed skill aside: $skill_name (source $source_rel is gone) -> $destination"
 
-        for consumer_path in \
-            "$HOME/.claude/skills/$skill_name" \
-            "$HOME/.cursor/skills/$skill_name" \
-            "$HOME/.config/devin/skills/$skill_name" \
-            "$HOME/.config/opencode/skills/$skill_name" \
-            "$HOME/.pi/agent/skills/$skill_name"; do
-            if [ -L "$consumer_path" ] && [ "$(readlink "$consumer_path")" = "$path" ]; then
-                rm -f "$consumer_path"
-            fi
-        done
+        if [ ${#consumer_links[@]} -gt 0 ]; then
+            rm -f "${consumer_links[@]}"
+        fi
+        remove_skill_lock_entries "$skill_name"
     done
-
-    if [ ${#retired_skills[@]} -gt 0 ]; then
-        remove_skill_lock_entries "${retired_skills[@]}"
-    fi
 }
 
 consumer_entry_is_repo_managed() {
