@@ -758,6 +758,19 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
 
+    def test_a_fallback_never_cleans_a_replacement_worktree_on_the_same_branch_and_path(self):
+        self.record_then_remove_worktree()
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual(code, 0, record)
+        git(self.f.main, "worktree", "add", str(self.f.wt), record["branch"])
+        self.f.claim()
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertTrue(self.f.remote_has_branch())
+
     def test_a_fallback_to_a_record_without_a_workspace_keeps_requiring_paseo_on_resume(self):
         self.f.fake(workspaces=[])
         code, report = self.f.run(cwd=self.f.wt)

@@ -27,6 +27,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -101,6 +102,17 @@ def paseo_managed(path: str) -> bool:
     return inside(path, real(os.path.join(os.environ.get("PASEO_HOME", "~/.paseo"), "worktrees")))
 
 
+def worktree_token(git_dir: str) -> str | None:
+    """A random id kept in the linked worktree's git admin directory, so a removed and recreated worktree at the same path gets a new one."""
+    file = Path(git_dir) / "worktree-cleanup-token"
+    try:
+        if not file.exists():
+            file.write_text(uuid.uuid4().hex + "\n")
+        return file.read_text().strip() or None
+    except OSError:
+        return None
+
+
 def say(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
@@ -133,6 +145,7 @@ class Snapshot:
     unresolved_demos: list[dict] = field(default_factory=list)
     abandon: str | None = None
     merged_heads: list[str] = field(default_factory=list)
+    token: str | None = None
 
     @property
     def file(self) -> Path:
@@ -269,8 +282,8 @@ class Cleanup:
         if self.exists:
             live = self.snapshot_live(path, workspace_id)
             if recorded:
-                if (live.common_dir, live.branch) != (recorded.common_dir, recorded.branch):
-                    raise Refused(f"{path} now holds a different worktree ({live.branch} in {live.common_dir}) than the recorded {recorded.branch} in {recorded.common_dir}; not cleaning it up", "REFUSE-TARGET-CONFLICT")
+                if recorded.token is None or live.token != recorded.token:
+                    raise Refused(f"{path} cannot be shown to be the worktree recorded for {recorded.workspace_id}: its worktree token is {'missing from the record' if recorded.token is None else 'different'}, so it may be a replacement; run with --path alone to clean it deliberately", "REFUSE-TARGET-CONFLICT")
                 users = {w.get("workspaceId") for w in self.workspaces(Refused) if w.get("cwd") and inside(real(w["cwd"]), live.path)}
                 users |= {live.workspace_id} - {None}
                 if users - {recorded.workspace_id}:
@@ -317,6 +330,7 @@ class Cleanup:
             common_dir=real(common),
             workspace_id=workspace_id,
             abandon=self.args.abandon,
+            token=worktree_token(git_dir),
         )
         previous = Snapshot.load(path)
         if previous and (previous.repo, previous.branch) == (snap.repo, snap.branch):

@@ -45,7 +45,7 @@ A refusal (exit 2) puts a stable code in the report's `code` field (`null` other
 | --- | --- |
 | `REFUSE-GONE-NO-RECORD` | The worktree is gone and no cleanup record names it. |
 | `REFUSE-UNKNOWN-WORKSPACE` | `--workspace` names an id paseo does not list and no record holds, and `--path` is absent or has no record at that worktree path. |
-| `REFUSE-TARGET-CONFLICT` | `--workspace` resolves to a different worktree than `--path`, or the id fell back to the record at `--path` while another workspace now owns that path. |
+| `REFUSE-TARGET-CONFLICT` | `--workspace` resolves to a different worktree than `--path`, or the id fell back to the record at `--path` while another workspace now uses that path or the live worktree is not the recorded one. A worktree is recorded with a random token kept in its git admin directory, so a worktree removed and recreated at the same path (even on the same branch) is refused; run with `--path` alone to clean it deliberately. |
 | `REFUSE-NOT-WORKTREE`, `REFUSE-MAIN-CHECKOUT`, `REFUSE-LOCKED` | The path is not a linked git worktree, is the main checkout, or is locked. |
 | `REFUSE-NO-REPO` | The GitHub repository cannot be resolved. |
 | `REFUSE-PASEO-UNAVAILABLE` | `--workspace` was given, or the worktree is under the Paseo home, and `paseo workspace ls` fails. A failed listing is never read as the workspace being gone. |
