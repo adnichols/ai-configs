@@ -17,8 +17,11 @@ live agent at its cwd, top-level agents first), so the title, the worktree isola
      PASEO_AGENT_ID removed from its environment: run from inside an agent, `paseo run` makes the new agent that agent's
      subagent otherwise.
   5. `paseo inspect`: the requested provider, model, thinking and mode, the workspace's cwd, and no ParentAgentId.
-     Any failure or interruption from step 3 on archives the workspace titled `WKS <name>` (found by title when the
+     Any failure or interruption in steps 3 to 5 archives the workspace titled `WKS <name>` (found by title when the
      create's outcome is unknown) and deletes the branch while it is still at the base commit.
+  6. Pin the workspace to Paseo's sidebar with pin_workspace.mjs, run beside the installed paseo CLI. The pin is for
+     the operator to find the owner; a pin that fails or is interrupted is reported in `pin_error`, and the start
+     stands.
 
 Prints one JSON object on stdout. Exit codes: 0 started (or the --dry-run plan), 1 usage, 2 refused (nothing created),
 3 failed (what this run created was removed, except what `left` lists).
@@ -30,6 +33,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -40,6 +44,7 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 BRIEF = SKILL_DIR / "assets" / "owner-brief.md"
+PIN_SCRIPT = SKILL_DIR / "scripts" / "pin_workspace.mjs"
 HOSTS_FILE = Path("~/.config/orchestrate/hosts.json")
 # The configuration of the WKS owners running when this skill was written; --model and --thinking override.
 PROVIDER, MODEL, THINKING, MODE = "omp", "anthropic/claude-opus-5-5", "high", "full"
@@ -226,6 +231,44 @@ def verify(agent: str, ws: dict, args: argparse.Namespace) -> None:
         raise Failed(f"agent {agent} is misplaced: {'; '.join(problems)}")
 
 
+def paseo_node() -> tuple[list[str], dict[str, str]]:
+    """The command that runs a Node script beside the installed paseo CLI, and the environment it adds, which names the
+    CLI's dist directory in PASEO_CLI_DIST. Raises OSError for an install it does not recognize."""
+    exe = shutil.which("paseo")
+    if not exe:
+        raise OSError("paseo is not on PATH")
+    cli = Path(exe).resolve().parent.parent
+    # npm global install: <prefix>/lib/node_modules/@getpaseo/cli/bin/paseo, a node script.
+    if (cli / "dist" / "utils" / "client.js").is_file():
+        return ["node"], {"PASEO_CLI_DIST": str(cli / "dist")}
+    # Desktop app: Resources/bin/paseo runs the CLI from app.asar in the app's own executable (the Electron helper on
+    # macOS, Paseo.bin or Paseo on Linux), as that launcher does.
+    app = cli.parent
+    runner = cli / "app.asar.unpacked" / "dist" / "daemon" / "node-entrypoint-runner.js"
+    electron = [e for e in (app / "Frameworks" / "Paseo Helper.app" / "Contents" / "MacOS" / "Paseo Helper",
+                            app / "Paseo.bin", app / "Paseo") if e.is_file()]
+    if electron and runner.is_file():
+        return ([str(electron[0]), "--disable-warning=DEP0040", str(runner), "node-script"],
+                {"PASEO_CLI_DIST": str(cli / "app.asar" / "node_modules" / "@getpaseo" / "cli" / "dist"),
+                 "ELECTRON_RUN_AS_NODE": "1", "PASEO_NODE_ENV": "production"})
+    raise OSError(f"no paseo CLI dist found for {Path(exe).resolve()}")
+
+
+def pin(ws: dict) -> str | None:
+    """Pin the workspace to Paseo's sidebar. Returns why it could not, or None. Never raises: the owner has started,
+    and an error or interrupt here must not lose the report of it."""
+    try:
+        prefix, extra = paseo_node()
+        p = run([*prefix, str(PIN_SCRIPT), ws["workspaceId"]], env=dict(os.environ, **extra), timeout=REMOTE_TIMEOUT)
+    except OSError as e:
+        return str(e)
+    except BaseException as e:
+        return f"{type(e).__name__}: {e}" if str(e) else type(e).__name__
+    if p.returncode:
+        return tail(p) or f"exit {p.returncode}"
+    return None
+
+
 def roll_back(plan: dict, ws: dict | None) -> list[str]:
     """Archive the workspace this run created and delete its branch while it holds no commit past the base. Without
     `ws` (the create's outcome is unknown) the workspace is found by title: preflight found none, so any is this run's.
@@ -303,9 +346,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"start_wks.py: failed: {error}", file=sys.stderr)
         return emit(3, result="failed", error=error, agent=agent, workspace=ws and ws["workspaceId"], left=left)
 
+    pin_error = pin(ws)
     return emit(0, result="started", agent=agent, workspace=ws["workspaceId"], title=plan["title"], worktree=ws["cwd"],
                 branch=plan["branch"], base=plan["base"], base_sha=plan["base_sha"], host=plan["host"],
-                model=args.model, thinking=args.thinking, unchecked_hosts=plan["unchecked_hosts"])
+                model=args.model, thinking=args.thinking, unchecked_hosts=plan["unchecked_hosts"],
+                pinned=pin_error is None, pin_error=pin_error)
 
 
 if __name__ == "__main__":
