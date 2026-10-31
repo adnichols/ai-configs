@@ -130,7 +130,7 @@ def wrangler(state, args):
     if args[:2] == ["auth", "token"]:
         return out({"type": "oauth", "token": "fake-token"})
     if args[:2] == ["d1", "list"]:
-        return out([{"name": n} for n in state["d1"]])
+        return out(state["d1_raw"] if "d1_raw" in state else [{"name": n} for n in state["d1"]])
     if args[:2] == ["d1", "export"]:
         Path(args[args.index("--output") + 1]).write_text("-- export\n")
         return

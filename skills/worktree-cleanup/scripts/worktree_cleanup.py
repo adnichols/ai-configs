@@ -366,9 +366,9 @@ class Cleanup:
         previous = Snapshot.load(path)
         if previous and (previous.repo, previous.branch) == (snap.repo, snap.branch):
             snap.claims = previous.claims
-            if snap.token is not None and previous.token == snap.token:
-                snap.demos = previous.demos
-                snap.unresolved_demos = previous.unresolved_demos
+        if previous and snap.token is not None and previous.token == snap.token:
+            snap.demos = previous.demos
+            snap.unresolved_demos = previous.unresolved_demos
         return snap
 
     # ---- preflight -------------------------------------------------------
@@ -519,6 +519,7 @@ class Cleanup:
 
     def note_unresolved(self, run: str, reason: str, manifest: str, names: list[str]) -> None:
         """One record per run, holding every name any of its entries declared."""
+        self.snap.demos = [d for d in self.snap.demos if d["run"] != run]
         held = next((u for u in self.snap.unresolved_demos if u["run"] == run), None)
         if held is None:
             self.snap.unresolved_demos.append({"run": run, "reason": reason, "manifest": manifest, "names": sorted(set(names))})
@@ -674,7 +675,13 @@ class Cleanup:
         p = self.wrangler("d1", "list", "--json")
         if not p.ok:
             raise StepFailed(f"wrangler d1 list failed: {p.tail}")
-        return {d["name"] for d in parse_json(p.out)}
+        try:
+            listing = parse_json(p.out)
+        except ValueError:
+            listing = None
+        if not isinstance(listing, list) or not all(isinstance(d, dict) and isinstance(d.get("name"), str) for d in listing):
+            raise StepFailed("wrangler d1 list gave an answer that is not a list of databases")
+        return {d["name"] for d in listing}
 
     def step_demos(self) -> None:
         snap = self.snap
@@ -802,7 +809,7 @@ class Cleanup:
                     raise StepFailed("cannot list the account's R2 buckets: the answer is not a list of buckets")
                 found.update(b["name"] for b in buckets)
                 cursor, total = info.get("cursor"), info.get("total_count")
-                if not isinstance(total, int) or not (cursor is None or (isinstance(cursor, str) and cursor)):
+                if not isinstance(total, int) or isinstance(total, bool) or total < 0 or not (cursor is None or (isinstance(cursor, str) and cursor)):
                     raise StepFailed("cannot list the account's R2 buckets: the answer does not say whether it is complete")
                 if cursor is None:
                     break

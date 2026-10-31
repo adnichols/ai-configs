@@ -57,8 +57,9 @@ class AccountApi(ThreadingHTTPServer):
                     return handler.reply(500)
                 if state.get("api_redirect"):
                     return handler.reply(302, headers={"Location": "/leak"})
-                if "api_raw" in state:
-                    return handler.reply(200, state["api_raw"])
+                for suffix, raw in state.get("api_raw", {}).items():
+                    if url.path.endswith(suffix):
+                        return handler.reply(200, raw)
                 if url.path == f"/accounts/{ACCOUNT}/workers/scripts":
                     return handler.reply(200, {"success": True, "result": [{"id": w} for w in state["workers"]]})
                 if url.path == f"/accounts/{ACCOUNT}/r2/buckets":
@@ -693,12 +694,58 @@ class WorktreeCleanupTest(unittest.TestCase):
 
     def test_a_malformed_successful_listing_is_not_read_as_an_empty_account(self):
         self.unresolved_demo()
-        for raw in ({"success": True, "result": {"buckets": []}}, {"success": True, "result": {"buckets": []}, "result_info": {"total_count": 0, "cursor": ""}}, {"success": True, "result": {}}, {"success": True, "result": [{"id": 7}]}, ["not", "an", "object"], {"success": False, "errors": [{"code": 1, "message": "no"}]}):
-            with self.subTest(raw=raw):
-                self.f.fake(api_raw=raw)
+        buckets = {"success": True, "result": {"buckets": []}}
+        cases = [
+            ("r2/buckets", buckets),
+            ("r2/buckets", {**buckets, "result_info": {"total_count": 0, "cursor": ""}}),
+            ("r2/buckets", {**buckets, "result_info": {"total_count": -1}}),
+            ("r2/buckets", {**buckets, "result_info": {"total_count": False}}),
+            ("r2/buckets", {"success": True, "result": {}}),
+            ("workers/scripts", {"success": True, "result": [{"id": 7}]}),
+            ("workers/scripts", ["not", "an", "object"]),
+            ("workers/scripts", {"success": False, "errors": [{"code": 1, "message": "no"}]}),
+        ]
+        for suffix, raw in cases:
+            with self.subTest(suffix=suffix, raw=raw):
+                self.f.fake(api_raw={suffix: raw})
                 code, report = self.f.run("--path", str(self.f.wt))
                 self.assertEqual(code, 3, report)
                 self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_a_d1_listing_that_is_not_a_list_of_databases_is_not_read_as_an_empty_account(self):
+        self.unresolved_demo()
+        for raw in ({}, [{"id": "x"}], "none"):
+            with self.subTest(raw=raw):
+                self.f.fake(d1_raw=raw)
+                code, report = self.f.run("--path", str(self.f.wt))
+                self.assertEqual(code, 3, report)
+                self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_a_branch_change_in_the_same_worktree_keeps_an_unresolved_demo(self):
+        self.f.claim()
+        self.unresolved_demo(workers=[self.RUN])
+        self.f.fake(release_fails=True)
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 3)
+        subprocess.run(["git", "-C", str(self.f.wt), "switch", "-q", "-c", "renamed-branch"], check=True)
+        shutil.rmtree(self.f.wt / "artifacts")
+        self.f.fake(release_fails=False)
+        code, report = self.f.run("--path", str(self.f.wt), "--abandon", "branch dropped")
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertIn(self.RUN, report["remaining"][0]["reason"])
+
+    def test_a_manifest_that_turns_a_recorded_valid_demo_unresolved_deletes_nothing(self):
+        self.f.claim()
+        self.f.demo()
+        self.f.fake(release_fails=True)
+        self.assertEqual(self.f.run("--path", str(self.f.wt))[0], 3)
+        manifest = self.f.wt / "artifacts" / "verified-build" / "r1" / "demos.json"
+        data = json.loads(manifest.read_text())
+        data["demos"][0]["worktree"] = "/somewhere/else"
+        manifest.write_text(json.dumps(data))
+        self.f.fake(release_fails=False)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual([c for c in self.f.calls() if c.startswith("delete")], [])
 
     def test_the_account_token_is_never_sent_to_a_plain_http_host_that_is_not_loopback(self):
         self.unresolved_demo()
