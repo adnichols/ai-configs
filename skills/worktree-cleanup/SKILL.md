@@ -48,7 +48,7 @@ A refusal (exit 2) puts a stable code in the report's `code` field (`null` other
 | `REFUSE-TARGET-CONFLICT` | `--workspace` resolves to a different worktree than `--path`, or the id fell back to the record at `--path` while another workspace now owns that path. |
 | `REFUSE-NOT-WORKTREE`, `REFUSE-MAIN-CHECKOUT`, `REFUSE-LOCKED` | The path is not a linked git worktree, is the main checkout, or is locked. |
 | `REFUSE-NO-REPO` | The GitHub repository cannot be resolved. |
-| `REFUSE-PASEO-UNAVAILABLE` | The worktree is under the Paseo home and `paseo workspace ls` fails. |
+| `REFUSE-PASEO-UNAVAILABLE` | `--workspace` was given, or the worktree is under the Paseo home, and `paseo workspace ls` fails. A failed listing is never read as the workspace being gone. |
 | `REFUSE-CLAIM-MALFORMED` | `.ccore/lab-claim.json` cannot be parsed. |
 | `REFUSE-PREFLIGHT` | Dirty, unmerged, open-PR, running-agent or lab-claim checks failed; `error` lists them. |
 | `REFUSE-PRESERVE-FAILED` | `--abandon` could not save the unpushed commits. |

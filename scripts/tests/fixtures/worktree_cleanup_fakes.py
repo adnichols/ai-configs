@@ -60,6 +60,8 @@ def gh(state, args):
 
 
 def paseo(state, args):
+    if state.get("paseo_down"):
+        fail("paseo daemon is not running")
     if args[:2] == ["workspace", "ls"]:
         return out(state["workspaces"])
     if args[0] == "ls":

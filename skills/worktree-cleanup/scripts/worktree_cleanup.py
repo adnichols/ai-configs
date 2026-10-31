@@ -238,7 +238,7 @@ class Cleanup:
         recorded: Snapshot | None = None
         workspace_id = a.workspace
         if workspace_id:
-            match = next((w for w in self.workspaces(None) if w.get("workspaceId") == workspace_id), None)
+            match = next((w for w in self.workspaces(Refused) if w.get("workspaceId") == workspace_id), None)
             by_record = Snapshot.find_by_workspace(workspace_id)
             by_id = real(match["cwd"]) if match else (by_record.path if by_record else None)
             if by_id is None and not a.path:

@@ -685,6 +685,16 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
 
+    def test_a_paseo_outage_is_not_read_as_the_workspace_being_gone(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(paseo_down=True)
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-PASEO-UNAVAILABLE"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
 
 if __name__ == "__main__":
     unittest.main()
