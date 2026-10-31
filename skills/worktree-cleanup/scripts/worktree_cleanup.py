@@ -509,7 +509,7 @@ class Cleanup:
                 reason = self.demo_problem(entry)
                 if reason:
                     self.note_unresolved(run, reason, manifest, declared_names(entry))
-                elif run not in known:
+                elif run not in known and not any(u["run"] == run for u in snap.unresolved_demos):
                     snap.demos.append({"run": run, "worker": entry["worker"], "d1": entry.get("d1")})
         for note in glob.glob(os.path.join(snap.path, DEMO_NOTES), recursive=True):
             for run in DEMO_URL.findall(Path(note).read_text(errors="replace")):
@@ -675,13 +675,7 @@ class Cleanup:
         p = self.wrangler("d1", "list", "--json")
         if not p.ok:
             raise StepFailed(f"wrangler d1 list failed: {p.tail}")
-        try:
-            listing = parse_json(p.out)
-        except ValueError:
-            listing = None
-        if not isinstance(listing, list) or not all(isinstance(d, dict) and isinstance(d.get("name"), str) for d in listing):
-            raise StepFailed("wrangler d1 list gave an answer that is not a list of databases")
-        return {d["name"] for d in listing}
+        return {d["name"] for d in parse_json(p.out)}
 
     def step_demos(self) -> None:
         snap = self.snap
@@ -748,21 +742,15 @@ class Cleanup:
     def demo_blockers(u: dict, account: dict[str, set[str]]) -> list[str]:
         """What keeps an unresolved demo deferred: every account name equal to a name its manifest entry declared, or equal to the run name or starting `<run>-`.
 
-        A record written before `names` existed declares none unless its manifest still exists; then only the run name decides."""
+        A record written before `names` existed declares none, so only the run name decides."""
         run = u["run"]
         if not RUN_NAME.fullmatch(run) or u.get("reason") == RUN_MALFORMED:
             return ["its run name is malformed, so the account cannot be searched for it"]
         declared = set(u.get("names", []))
-        manifest = Path(u.get("manifest", ""))
-        if manifest.name == "demos.json" and manifest.is_file():
-            try:
-                declared.update(n for e in json.loads(manifest.read_text()).get("demos", []) if isinstance(e, dict) and e.get("run") == run for n in declared_names(e))
-            except (OSError, ValueError, AttributeError):
-                pass
         return [f"{kind} {name} still exists" for kind, names in account.items() for name in sorted(names) if name == run or name.startswith(f"{run}-") or name in declared]
 
     def account_names(self) -> dict[str, set[str]]:
-        return {"worker": self.worker_names(), "D1 database": self.d1_names(), "R2 bucket": self.r2_names()}
+        return {"worker": self.worker_names(), "D1 database": self.d1_account_names(), "R2 bucket": self.r2_names()}
 
     def account_listing(self, path: str, what: str, headers: dict[str, str] | None = None) -> tuple[object, dict]:
         """GET one page of a Labs account listing over the REST API with wrangler's own credential: wrangler has no list command for Workers and stops `r2 bucket list` at 20 buckets."""
@@ -785,15 +773,31 @@ class Cleanup:
         if not isinstance(body, dict) or body.get("success") is not True or body.get("result") is None:
             raise StepFailed(f"cannot list the account's {what}: {(body.get('errors') if isinstance(body, dict) else None) or body}")
         info = body.get("result_info")
-        return body["result"], info if isinstance(info, dict) else {}
+        if info is not None and not isinstance(info, dict):
+            raise StepFailed(f"cannot list the account's {what}: the paging metadata is malformed")
+        return body["result"], info or {}
 
     def worker_names(self) -> set[str]:
         scripts, info = self.account_listing("workers/scripts", "workers")
         if not isinstance(scripts, list) or not all(isinstance(w, dict) and isinstance(w.get("id"), str) for w in scripts):
             raise StepFailed("cannot list the account's workers: the answer is not a list of Workers")
-        if info.get("total_count", len(scripts)) > len(scripts):
-            raise StepFailed("cannot list the account's workers: the answer holds only part of them")
+        self.require_whole_listing(info, len(scripts), "workers", counted=False)
         return {w["id"] for w in scripts}
+
+    def d1_account_names(self) -> set[str]:
+        """`wrangler d1 list` stops at the first short page whatever the account's paging metadata says, so the account scan reads the API."""
+        databases, info = self.account_listing("d1/database?per_page=1000", "D1 databases")
+        if not isinstance(databases, list) or not all(isinstance(d, dict) and isinstance(d.get("name"), str) for d in databases):
+            raise StepFailed("cannot list the account's D1 databases: the answer is not a list of databases")
+        self.require_whole_listing(info, len(databases), "D1 databases", counted=True)
+        return {d["name"] for d in databases}
+
+    @staticmethod
+    def require_whole_listing(info: dict, found: int, what: str, counted: bool) -> None:
+        """One page that is the whole listing: no continuation, and a total (required when `counted`) that is a count no larger than what came back."""
+        total = info.get("total_count")
+        if info.get("cursor") is not None or (total is None and counted) or (total is not None and (not isinstance(total, int) or isinstance(total, bool) or total < 0 or total > found)):
+            raise StepFailed(f"cannot list the account's {what}: the answer does not show that it holds all of them")
 
     def r2_names(self) -> set[str]:
         """Every R2 bucket in the default, EU and US jurisdictions, following each listing's cursor. FedRAMP buckets are not searched: the API answers Access Denied for the Labs account, which has no such jurisdiction."""

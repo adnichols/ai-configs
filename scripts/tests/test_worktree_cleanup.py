@@ -60,6 +60,8 @@ class AccountApi(ThreadingHTTPServer):
                 for suffix, raw in state.get("api_raw", {}).items():
                     if url.path.endswith(suffix):
                         return handler.reply(200, raw)
+                if url.path == f"/accounts/{ACCOUNT}/d1/database":
+                    return handler.reply(200, {"success": True, "result": [{"name": d, "uuid": "x"} for d in state["d1"]], "result_info": {"total_count": len(state["d1"])}})
                 if url.path == f"/accounts/{ACCOUNT}/workers/scripts":
                     return handler.reply(200, {"success": True, "result": [{"id": w} for w in state["workers"]]})
                 if url.path == f"/accounts/{ACCOUNT}/r2/buckets":
@@ -703,20 +705,18 @@ class WorktreeCleanupTest(unittest.TestCase):
             ("r2/buckets", {"success": True, "result": {}}),
             ("workers/scripts", {"success": True, "result": [{"id": 7}]}),
             ("workers/scripts", ["not", "an", "object"]),
+            ("workers/scripts", {"success": True, "result": [], "result_info": {"cursor": "next"}}),
+            ("workers/scripts", {"success": True, "result": [], "result_info": {"total_count": -1}}),
+            ("workers/scripts", {"success": True, "result": [], "result_info": ["malformed"]}),
+            ("d1/database", {"success": True, "result": [], "result_info": {"total_count": 5}}),
+            ("d1/database", {"success": True, "result": []}),
+            ("d1/database", {"success": True, "result": {}, "result_info": {"total_count": 0}}),
+            ("d1/database", {"success": True, "result": [{"uuid": "x"}], "result_info": {"total_count": 1}}),
             ("workers/scripts", {"success": False, "errors": [{"code": 1, "message": "no"}]}),
         ]
         for suffix, raw in cases:
             with self.subTest(suffix=suffix, raw=raw):
                 self.f.fake(api_raw={suffix: raw})
-                code, report = self.f.run("--path", str(self.f.wt))
-                self.assertEqual(code, 3, report)
-                self.assertEqual(self.unresolved_runs(), [self.RUN])
-
-    def test_a_d1_listing_that_is_not_a_list_of_databases_is_not_read_as_an_empty_account(self):
-        self.unresolved_demo()
-        for raw in ({}, [{"id": "x"}], "none"):
-            with self.subTest(raw=raw):
-                self.f.fake(d1_raw=raw)
                 code, report = self.f.run("--path", str(self.f.wt))
                 self.assertEqual(code, 3, report)
                 self.assertEqual(self.unresolved_runs(), [self.RUN])
@@ -732,6 +732,23 @@ class WorktreeCleanupTest(unittest.TestCase):
         code, report = self.f.run("--path", str(self.f.wt), "--abandon", "branch dropped")
         self.assertEqual((code, report["status"]), (4, "deferred"), report)
         self.assertIn(self.RUN, report["remaining"][0]["reason"])
+
+    def run_with_a_valid_and_an_invalid_entry_for_one_run(self, invalid_first):
+        directory = self.f.wt / "artifacts" / "verified-build" / "r1"
+        directory.mkdir(parents=True)
+        valid = {"run": self.RUN, "worker": self.RUN, "d1": None, "account": ACCOUNT, "url": f"https://{self.RUN}.demos.keramos.tech", "worktree": str(self.f.wt), "branch": "feat"}
+        invalid = {**valid, "worktree": "/somewhere/else"}
+        (directory / "demos.json").write_text(json.dumps({"demos": [invalid, valid] if invalid_first else [valid, invalid]}))
+        self.f.fake(workers=[self.RUN], d1=[], r2=[])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual([c for c in self.f.calls() if c.startswith("delete")], [])
+
+    def test_an_invalid_entry_before_a_valid_one_for_the_same_run_deletes_nothing(self):
+        self.run_with_a_valid_and_an_invalid_entry_for_one_run(invalid_first=True)
+
+    def test_an_invalid_entry_after_a_valid_one_for_the_same_run_deletes_nothing(self):
+        self.run_with_a_valid_and_an_invalid_entry_for_one_run(invalid_first=False)
 
     def test_a_manifest_that_turns_a_recorded_valid_demo_unresolved_deletes_nothing(self):
         self.f.claim()
