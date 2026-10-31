@@ -657,6 +657,24 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertTrue(self.f.wt.exists())
         self.assertEqual(self.f.calls(), [])
 
+    def test_resume_command_after_the_workspace_id_is_reused_for_an_ancestor_directory_is_refused(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(self.f.tmp), "repo": str(self.f.main)}])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+
+    def test_unknown_workspace_id_with_a_path_now_owned_by_another_workspace_is_refused(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(workspaces=[{"workspaceId": "wks_new", "cwd": str(self.f.wt), "repo": str(self.f.main)}])
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue(self.f.wt.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

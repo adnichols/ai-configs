@@ -226,9 +226,16 @@ class Cleanup:
         say(f"{e.code}: {e}")
         return self.report("refused", 2, str(e), e.code), 2
 
+    @staticmethod
+    def worktree_root(path: str) -> str:
+        """The worktree root `path` is in, or its real path when it is not an existing git worktree."""
+        top = sh(["git", "-C", path, "rev-parse", "--show-toplevel"]) if os.path.isdir(path) else None
+        return real(top.out.strip()) if top and top.ok else real(path)
+
     def resolve(self) -> None:
         a = self.args
         path: str | None = None
+        recorded: Snapshot | None = None
         workspace_id = a.workspace
         if workspace_id:
             match = next((w for w in self.workspaces(None) if w.get("workspaceId") == workspace_id), None)
@@ -236,13 +243,15 @@ class Cleanup:
             by_id = real(match["cwd"]) if match else (snap.path if snap else None)
             if by_id is None and not a.path:
                 raise Refused(f"unknown workspace {workspace_id}: not listed by paseo and no cleanup record", "REFUSE-UNKNOWN-WORKSPACE")
-            if by_id is not None and a.path and not inside(real(a.path), by_id):
-                raise Refused(f"workspace {workspace_id} is at {by_id}, not {real(a.path)}", "REFUSE-TARGET-CONFLICT")
+            given = self.worktree_root(a.path) if a.path else None
+            if by_id is not None and given and given != by_id:
+                raise Refused(f"workspace {workspace_id} is at {by_id}, not {given}", "REFUSE-TARGET-CONFLICT")
             if by_id is None:
-                if Snapshot.load(real(a.path)) is None:
-                    raise Refused(f"unknown workspace {workspace_id}: not listed by paseo, and {real(a.path)} has no cleanup record to fall back to", "REFUSE-UNKNOWN-WORKSPACE")
+                recorded = Snapshot.load(given)
+                if recorded is None:
+                    raise Refused(f"unknown workspace {workspace_id}: not listed by paseo, and {given} has no cleanup record to fall back to", "REFUSE-UNKNOWN-WORKSPACE")
                 workspace_id = None
-            path = by_id or real(a.path)
+            path = by_id or given
         elif a.path:
             path = real(a.path)
         else:
@@ -258,6 +267,8 @@ class Cleanup:
             if snap is None:
                 raise Refused(f"{path} is gone and has no cleanup record; nothing to resume", "REFUSE-GONE-NO-RECORD")
             self.snap = snap
+        if recorded and self.exists and self.snap.workspace_id not in (None, recorded.workspace_id):
+            raise Refused(f"{path} is now owned by workspace {self.snap.workspace_id}, not {recorded.workspace_id} as recorded; pass that workspace id", "REFUSE-TARGET-CONFLICT")
         self.self_mode = inside(real(os.getcwd()), self.snap.path)
 
     def snapshot_live(self, path: str, workspace_id: str | None) -> Snapshot:
