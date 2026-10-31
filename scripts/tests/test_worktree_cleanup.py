@@ -30,18 +30,22 @@ def git(cwd, *args):
 
 
 class AccountApi(ThreadingHTTPServer):
-    """The slice of the Cloudflare REST API the script reads: the worker list of the Labs account, from the fake account state."""
+    """The slice of the Cloudflare REST API the script reads: the Labs account's worker and R2 bucket lists, from the fake account state."""
 
     def __init__(self, fake_state: Path):
         class Handler(BaseHTTPRequestHandler):
             def do_GET(handler):
                 state = json.loads(fake_state.read_text())
-                ok = handler.path == f"/accounts/{ACCOUNT}/workers/scripts" and handler.headers.get("Authorization") == "Bearer fake-token"
-                if ok and state.get("workers_api_down"):
+                listing = {
+                    f"/accounts/{ACCOUNT}/workers/scripts": {"success": True, "result": [{"id": w} for w in state["workers"]]},
+                    f"/accounts/{ACCOUNT}/r2/buckets?per_page=1000": {"success": True, "result": {"buckets": [{"name": b} for b in state["r2"]]}, "result_info": {"total_count": state.get("r2_total", len(state["r2"]))}},
+                }.get(handler.path)
+                ok = listing is not None and handler.headers.get("Authorization") == "Bearer fake-token"
+                if ok and state.get("api_down"):
                     handler.send_response(500)
                     handler.end_headers()
                     return
-                body = json.dumps({"success": True, "result": [{"id": w} for w in state["workers"]]} if ok else {"success": False, "errors": [{"code": 10000, "message": "Authentication error"}]}).encode()
+                body = json.dumps(listing if ok else {"success": False, "errors": [{"code": 10000, "message": "Authentication error"}]}).encode()
                 handler.send_response(200 if ok else 403)
                 handler.end_headers()
                 handler.wfile.write(body)
@@ -633,10 +637,18 @@ class WorktreeCleanupTest(unittest.TestCase):
 
     def test_unresolved_demo_is_kept_when_the_account_cannot_be_listed(self):
         self.unresolved_demo()
-        self.f.fake(workers_api_down=True)
+        self.f.fake(api_down=True)
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual(code, 3, report)
         self.assertIn("worker", report["error"])
+        self.assertEqual(self.unresolved_runs(), [self.RUN])
+
+    def test_unresolved_demo_is_kept_when_the_bucket_list_is_cut_short(self):
+        self.unresolved_demo()
+        self.f.fake(r2_total=21)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 3, report)
+        self.assertIn("R2 buckets", report["error"])
         self.assertEqual(self.unresolved_runs(), [self.RUN])
 
     def test_a_demo_found_again_by_every_run_is_recorded_once(self):
@@ -655,7 +667,7 @@ class WorktreeCleanupTest(unittest.TestCase):
                 self.f.fake(**account)
                 code, report = self.f.run("--path", str(self.f.wt), "--demo-removed", self.RUN)
                 self.assertEqual((code, report["status"], report["code"]), (2, "refused", "REFUSE-DEMO-PRESENT"), report)
-                self.assertEqual(report["steps"], [])
+                self.assertEqual([step["id"] for step in report["steps"]], ["preflight"])
                 self.assertEqual(self.f.calls(), [])
                 self.assertTrue(self.f.wt.exists() and self.f.remote_has_branch())
         self.f.fake(r2=[])
