@@ -880,6 +880,61 @@ test_non_managed_retired_skill_is_preserved() {
   assert_file_contains "$home/.agents/.skill-lock.json" 'omp-review-partner' || return 1
 }
 
+seed_managed_marker() {
+  local skill_dir="$1"
+  local repo="$2"
+  local source="$3"
+  local commit="$4"
+  mkdir -p "$skill_dir"
+  printf '# %s\n' "$(basename "$skill_dir")" > "$skill_dir/SKILL.md"
+  python3 - "$skill_dir/.ai-configs-managed.json" "$repo" "$source" "$commit" <<'PY'
+import json, sys
+path, repo, source, commit = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump({"repo": repo, "source": source, "managed": True, "commit": commit}, handle)
+PY
+}
+
+test_managed_skill_whose_source_was_removed_is_moved_aside() {
+  local home output_file second_file retired_root moved retired_count
+  home="$(new_tmp_dir)"
+  output_file="$home/first.log"
+  second_file="$home/second.log"
+  retired_root="$home/.cache/retired-skills"
+
+  seed_managed_marker "$home/.agents/skills/gone-skill" ai-configs skills/gone-skill 115f530abcdef0123456789
+  seed_managed_marker "$home/.agents/skills/other-repo-skill" other-repo skills/other-repo-skill 115f530abcdef0123456789
+  seed_managed_marker "$home/.agents/skills/external-gone" ai-configs 'external-package:example/pkg#external-gone' 115f530abcdef0123456789
+  seed_managed_marker "$home/.agents/skills/linear" ai-configs skills/linear 115f530abcdef0123456789
+  mkdir -p "$home/.agents/skills/hand-made" "$home/.claude/skills"
+  printf 'user-owned skill\n' > "$home/.agents/skills/hand-made/SKILL.md"
+  ln -s "$home/.agents/skills/gone-skill" "$home/.claude/skills/gone-skill"
+  printf '{"skills":{"gone-skill":{"source":"x"},"hand-made":{"source":"user"}}}\n' > "$home/.agents/.skill-lock.json"
+
+  run_installer_capture "$home" "$output_file" --skills || return 1
+
+  [[ ! -e "$home/.agents/skills/gone-skill" ]] || return 1
+  [[ ! -e "$home/.claude/skills/gone-skill" && ! -L "$home/.claude/skills/gone-skill" ]] || return 1
+  moved="$(find "$retired_root" -mindepth 1 -maxdepth 1 -type d -name "gone-skill-115f530-$(date +%Y%m%d)" | head -n 1)"
+  [[ -n "$moved" ]] || return 1
+  assert_file_contains "$moved/SKILL.md" '# gone-skill' || return 1
+  [[ "$(grep -c 'Moved retired managed skill aside' "$output_file")" == 1 ]] || return 1
+  assert_file_contains "$output_file" "gone-skill" || return 1
+  assert_file_not_contains "$home/.agents/.skill-lock.json" 'gone-skill' || return 1
+  assert_file_contains "$home/.agents/.skill-lock.json" 'hand-made' || return 1
+
+  assert_file_contains "$home/.agents/skills/other-repo-skill/SKILL.md" '# other-repo-skill' || return 1
+  assert_file_contains "$home/.agents/skills/external-gone/SKILL.md" '# external-gone' || return 1
+  assert_file_contains "$home/.agents/skills/hand-made/SKILL.md" 'user-owned skill' || return 1
+  [[ -f "$home/.agents/skills/linear/SKILL.md" ]] || return 1
+  [[ "$(find "$retired_root" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" == 1 ]] || return 1
+
+  retired_count="$(find "$retired_root" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')"
+  run_installer_capture "$home" "$second_file" --skills || return 1
+  assert_file_not_contains "$second_file" 'Moved retired managed skill aside' || return 1
+  [[ "$(find "$retired_root" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" == "$retired_count" ]] || return 1
+}
+
 test_failpoint_after_backup_keeps_destination_recoverable() {
   local home
   local output_file
@@ -1686,6 +1741,7 @@ main() {
   run_test test_computer_use_routes_to_cua_driver
   run_test test_project_local_central_skill_overrides_are_removed
   run_test test_non_managed_retired_skill_is_preserved
+  run_test test_managed_skill_whose_source_was_removed_is_moved_aside
   run_test test_failpoint_after_backup_keeps_destination_recoverable
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
   run_test test_pi_install_removes_retired_packages
