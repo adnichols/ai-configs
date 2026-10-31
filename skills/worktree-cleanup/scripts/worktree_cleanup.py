@@ -38,7 +38,7 @@ DEMO_MANIFESTS = "artifacts/verified-build/*/demos.json"
 DEMO_NOTES = "artifacts/verified-build/**/*.md"
 DEMO_URL = re.compile(r"https://([a-z0-9][a-z0-9-]*)\.demos\.keramos\.tech")
 ABSENT_WORKER = ("10007", "10090", "does not exist")
-PR_FIELDS = "number,state,headRefOid,url,headRepositoryOwner"
+PR_FIELDS = "number,state,headRefOid,url,headRepositoryOwner,headRepository"
 
 
 class Refused(Exception):
@@ -123,6 +123,7 @@ class Snapshot:
     demos: list[dict] = field(default_factory=list)
     unresolved_demos: list[dict] = field(default_factory=list)
     abandon: str | None = None
+    merged_heads: list[str] = field(default_factory=list)
 
     @property
     def file(self) -> Path:
@@ -337,7 +338,8 @@ class Cleanup:
                 hard.append(f"cannot list PRs: {prs.tail}")
             else:
                 owner = snap.repo.split("/")[0].lower()
-                mine = [p for p in json.loads(prs.out) if (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner]
+                repo_name = snap.repo.split("/")[1].lower()
+                mine = [p for p in json.loads(prs.out) if (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner and (p.get("headRepository") or {}).get("name", "").lower() == repo_name]
                 exact = [p for p in mine if p["headRefOid"] == snap.head]
                 opened = [p for p in exact if p["state"] == "OPEN"]
                 merged = [p for p in mine if p["state"] == "MERGED" and (p["headRefOid"] == snap.head or self.head_is_in(p["headRefOid"]))]
@@ -345,6 +347,7 @@ class Cleanup:
                     relaxable.append(f"PR #{opened[0]['number']} from {snap.branch} at this head is still open")
                 elif merged:
                     snap.pr = max(merged, key=lambda p: p["number"])
+                    snap.merged_heads = sorted({p["headRefOid"] for p in merged})
                 elif exact:
                     relaxable.append(f"PR #{exact[0]['number']} was closed without merging")
                 elif mine:
@@ -658,12 +661,14 @@ class Cleanup:
         if tip is None:
             self.record("remote_branch", "already_done", branch=snap.branch)
             return
-        merged_head = snap.pr["headRefOid"] if snap.pr and snap.pr.get("state") == "MERGED" else None
-        if tip != snap.head and tip != merged_head:
-            self.defer("operator", f"origin/{snap.branch} is at {tip[:9]}, not the recorded head {snap.head[:9]} or the merged PR head; it has commits this cleanup did not check", None)
+        merged_heads = set(snap.merged_heads)
+        if snap.pr and snap.pr.get("state") == "MERGED":
+            merged_heads.add(snap.pr["headRefOid"])
+        if tip != snap.head and tip not in merged_heads:
+            self.defer("operator", f"origin/{snap.branch} is at {tip[:9]}, not the recorded head {snap.head[:9]} or the head of a merged PR; it has commits this cleanup did not check", None)
             self.record("remote_branch", "deferred", branch=snap.branch, remote_tip=tip)
             return
-        if merged_head is None:
+        if not merged_heads:
             self.defer("operator", f"origin/{snap.branch} kept: it holds work that never merged and the bundle only covers unpushed commits", None)
             self.record("remote_branch", "deferred", branch=snap.branch, note="unmerged work")
             return

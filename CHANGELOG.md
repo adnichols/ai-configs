@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- `worktree-cleanup` (WI-1281) cleans a stack-landed item without `--abandon`. A stack landing adds a `Merge main into <branch> for stack landing` commit after the worker's HEAD, so the merged PR head and origin's branch tip are one commit ahead of the recorded HEAD, and preflight and `remote_branch` both refused. Preflight now accepts a merged PR whose head contains the worktree HEAD (`gh api compare/<pr head>...<HEAD>` reports `ahead_by` 0), and `remote_branch` deletes the branch when its tip is the recorded head or that merged PR head. A HEAD the merged PR does not contain is still refused, and a tip that is neither is still kept for the operator. Installed copies at `~/.agents/skills/worktree-cleanup` update on the next installer run.
+- `worktree-cleanup` (WI-1281) cleans a stack-landed item without `--abandon`. A stack landing adds a `Merge main into <branch> for stack landing` commit after the worker's HEAD, so the merged PR head and origin's branch tip are one commit ahead of the recorded HEAD, and preflight and `remote_branch` both refused. Preflight now accepts a merged PR whose head contains the worktree HEAD (`gh api compare/<pr head>...<HEAD>` reports `ahead_by` 0), and `remote_branch` deletes the branch when its tip is the recorded head or the head of any merged PR that contains it. Only PRs whose head repository is this repository count, not a same-owner fork. A HEAD the merged PR does not contain is still refused, and a tip that is neither is still kept for the operator. Installed copies at `~/.agents/skills/worktree-cleanup` update on the next installer run.
 
 ### Added
 

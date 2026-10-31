@@ -61,7 +61,7 @@ class Fixture:
                 {
                     "calls": [],
                     "origin": str(self.origin),
-                    "prs": [{"number": 7, "url": PR_URL, "state": "MERGED", "headRefName": "feat", "baseRefName": "main", "headRefOid": self.head, "headRepositoryOwner": {"login": "acme"}}],
+                    "prs": [{"number": 7, "url": PR_URL, "state": "MERGED", "headRefName": "feat", "baseRefName": "main", "headRefOid": self.head, "headRepositoryOwner": {"login": "acme"}, "headRepository": {"name": "widgets"}}],
                     "workspaces": [{"workspaceId": "wks_1", "cwd": str(self.wt), "repo": str(self.main)}],
                     "agents": [],
                     "lab_claim": None,
@@ -455,6 +455,31 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(code, 4, report)
         self.assertEqual(self.f.step(report, "remote_branch")["status"], "deferred")
         self.assertTrue(self.f.remote_has_branch())
+
+    def test_branch_is_deleted_when_its_tip_is_the_head_of_any_merged_pr_that_contains_the_worker_head(self):
+        self.land_as_stack_member()
+        member = self.f.tmp / "member"
+        git(member, "merge", "-q", "--no-ff", "-m", "Merge main again", "origin/main")
+        (member / "again.txt").write_text("second merge-main\n")
+        git(member, "add", ".")
+        git(member, "commit", "-qm", "second")
+        git(member, "push", "-q", "origin", "feat")
+        prs = json.loads(self.f.fake_state.read_text())["prs"]
+        prs.append({**prs[0], "number": 11, "url": "https://github.com/acme/widgets/pull/11", "headRefOid": self.f.head})
+        prs[0]["headRefOid"] = git(member, "rev-parse", "HEAD")
+        self.f.fake(prs=prs)
+        code, report = self.f.run("--workspace", "wks_1")
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertFalse(self.f.remote_has_branch())
+
+    def test_merged_pr_from_another_repository_of_the_same_owner_does_not_authorize_cleanup(self):
+        self.land_as_stack_member()
+        prs = json.loads(self.f.fake_state.read_text())["prs"]
+        prs[0]["headRepository"] = {"name": "widgets-fork"}
+        self.f.fake(prs=prs)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 2, report)
+        self.assertTrue(self.f.wt.exists())
 
     def test_merged_pr_head_that_does_not_contain_the_worker_head_is_refused(self):
         self.land_as_stack_member()
