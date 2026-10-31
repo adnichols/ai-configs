@@ -17,6 +17,8 @@ Use the full installer for initial installs; do not bypass a provenance refusal.
 
 Use `bash install.sh --retire-skills <name>...` only for names in the deprecated list. This uses managed markers and recoverable backups. Do not remove same-name custom content by inference.
 
+The skills sync also moves any managed shared skill whose `skills/<name>` source no longer exists to `~/.cache/retired-skills/<name>-<commit>-<date>`, so removing a skill from `skills/` needs no deprecated-list entry to keep it from staying discoverable.
+
 Remote installs use Git only: commit and push, install locally, then run `git pull --ff-only` in each remote ai-configs checkout before installing. Do not transport managed source with tar, rsync, scp, or ad hoc copies.
 
 ## Hermes Configuration Source of Truth
