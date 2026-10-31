@@ -4,6 +4,7 @@ Each test builds a real bare origin, a clone and a linked worktree, and puts fak
 gh/paseo/pnpm/wrangler on PATH (see fixtures/worktree_cleanup_fakes.py). Git runs for real.
 """
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -782,6 +783,34 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(self.f.calls(), [])
         self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
         self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_fallback_for_a_removed_nested_worktree_never_resolves_to_the_enclosing_one(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        code, record = self.f.run("--show-record", str(self.f.wt))
+        self.assertEqual(code, 0, record)
+        nested = self.f.wt / "nested"
+        nested.mkdir()
+        nested_real = str(nested.resolve())
+        key = hashlib.sha256(nested_real.encode()).hexdigest()[:16]
+        (self.f.state_dir / f"{key}.json").write_text(json.dumps({**record, "path": nested_real, "workspace_id": "wks_nested"}))
+        self.f.claim()
+        self.f.fake(workspaces=[])
+        code, report = self.f.run("--workspace", "wks_typo", "--path", str(nested), cwd=self.f.main)
+        self.assertEqual((code, report["code"]), (2, "REFUSE-TARGET-CONFLICT"), report)
+        self.assertFalse(report.get("resume"), report)
+        self.assertEqual(self.f.calls(), [])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_the_resume_command_quotes_an_unmatched_workspace_argument(self):
+        self.f.fake(workspaces=[])
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(ls_script=[[], [], [], None])
+        code, report = self.f.run("--workspace", "wks gone;echo injected;#", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertIn("--workspace 'wks gone;echo injected;#' --path", report["resume"])
 
     def test_a_fallback_to_a_record_without_a_workspace_keeps_requiring_paseo_on_resume(self):
         self.f.fake(workspaces=[])

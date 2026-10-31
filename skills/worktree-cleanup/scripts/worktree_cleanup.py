@@ -200,7 +200,7 @@ class Cleanup:
         target = f"--path {shlex.quote(self.snap.path)}"
         workspace_id = self.snap.workspace_id or self.args.workspace
         if workspace_id:
-            target = f"--workspace {workspace_id} {target}"
+            target = f"--workspace {shlex.quote(workspace_id)} {target}"
         abandon = f" --abandon {shlex.quote(self.snap.abandon)}" if self.snap.abandon else ""
         return f"{script} {target}{abandon}"
 
@@ -266,7 +266,7 @@ class Cleanup:
             if by_id is not None and given and given != by_id:
                 raise Refused(f"workspace {workspace_id} is at {by_id}, not {given}", "REFUSE-TARGET-CONFLICT")
             if match is None:
-                recorded = by_record or Snapshot.load(given)
+                recorded = by_record or (Snapshot.load(real(a.path)) if a.path else None)
                 if recorded is None:
                     raise Refused(f"unknown workspace {workspace_id}: not listed by paseo, and {given} has no cleanup record to fall back to", "REFUSE-UNKNOWN-WORKSPACE")
                 workspace_id = None
@@ -282,6 +282,8 @@ class Cleanup:
         if self.exists:
             live = self.snapshot_live(path, workspace_id)
             if recorded:
+                if live.path != recorded.path:
+                    raise Refused(f"{path} resolves to the worktree {live.path}, not the recorded {recorded.path}; not cleaning it up", "REFUSE-TARGET-CONFLICT")
                 if recorded.token is None or live.token != recorded.token:
                     raise Refused(f"{path} cannot be shown to be the worktree recorded for {recorded.workspace_id}: its worktree token is {'missing from the record' if recorded.token is None else 'different'}, so it may be a replacement; run with --path alone to clean it deliberately", "REFUSE-TARGET-CONFLICT")
                 if (live.common_dir, live.branch) != (recorded.common_dir, recorded.branch):
