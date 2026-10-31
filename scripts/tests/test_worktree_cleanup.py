@@ -695,6 +695,29 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
 
+    def test_a_workspace_that_takes_over_the_path_after_resolution_is_not_removed_with_git(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        recorded = {"workspaceId": "wks_1", "cwd": str(self.f.wt), "repo": str(self.f.main)}
+        moved = {**recorded, "cwd": str(self.f.tmp / "elsewhere")}
+        taker = {"workspaceId": "wks_other", "cwd": str(self.f.wt), "repo": str(self.f.main)}
+        self.f.fake(ls_script=[[recorded], [moved, taker]])
+        code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual(self.f.step(report, "workspace")["note"], "path owned by another workspace")
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_paseo_outage_after_resolution_fails_the_workspace_step_instead_of_removing_with_git(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.f.fake(ls_script=[[], None])
+        code, report = self.f.run("--workspace", "wks_gone", "--path", str(self.f.wt), cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertEqual(self.f.step(report, "workspace")["status"], "failed")
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -96,6 +96,11 @@ def inside(child: str, parent: str) -> bool:
     return child == parent or child.startswith(parent.rstrip(os.sep) + os.sep)
 
 
+def paseo_managed(path: str) -> bool:
+    """True when `path` is under the Paseo home's worktrees directory, so a Paseo workspace is expected to own it."""
+    return inside(path, real(os.path.join(os.environ.get("PASEO_HOME", "~/.paseo"), "worktrees")))
+
+
 def say(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
@@ -293,8 +298,7 @@ class Cleanup:
             raise Refused(f"cannot resolve the GitHub repository: {meta.tail}", "REFUSE-NO-REPO")
         info = json.loads(meta.out)
         if workspace_id is None:
-            managed = inside(path, real(os.path.join(os.environ.get("PASEO_HOME", "~/.paseo"), "worktrees")))
-            match = next((w for w in self.workspaces(Refused if managed else None) if w.get("cwd") and real(w["cwd"]) == path), None)
+            match = next((w for w in self.workspaces(Refused if paseo_managed(path) else None) if w.get("cwd") and real(w["cwd"]) == path), None)
             workspace_id = match["workspaceId"] if match else None
         snap = Snapshot(
             path=path,
@@ -649,10 +653,18 @@ class Cleanup:
         if self.exists and not self.args.abandon and self.git("status", "--porcelain").out.strip():
             raise StepFailed("worktree became dirty after preflight; not removing it")
         workspace_id = snap.workspace_id
-        listed = [w for w in self.workspaces(StepFailed) if w.get("workspaceId") == workspace_id] if workspace_id else []
-        owned = next((w for w in listed if w.get("cwd") and real(w["cwd"]) == snap.path), None)
-        if listed and not owned:
-            say(f"[workspace] {workspace_id} is listed with cwd {listed[0].get('cwd')}, not {snap.path}; not archiving it")
+        listing = self.workspaces(StepFailed if (workspace_id or self.args.workspace or paseo_managed(snap.path)) else None)
+        at_path = [w for w in listing if w.get("cwd") and real(w["cwd"]) == snap.path]
+        owned = next((w for w in at_path if w.get("workspaceId") == workspace_id), None)
+        others = [w for w in at_path if w is not owned]
+        stale = next((w for w in listing if workspace_id and w.get("workspaceId") == workspace_id and w not in at_path), None)
+        if stale:
+            say(f"[workspace] {workspace_id} is listed with cwd {stale.get('cwd')}, not {snap.path}; not archiving it")
+        if others and not owned and os.path.isdir(snap.path):
+            self.defer("orchestrator", f"workspace {others[0].get('workspaceId')} owns {snap.path}, not the recorded {workspace_id}; not removing a worktree another workspace uses", None)
+            self.record("workspace", "deferred", workspace_id=workspace_id, note="path owned by another workspace")
+            self.archive_pending = True
+            return
         if owned:
             p = sh(["paseo", "workspace", "archive", workspace_id])
             if not p.ok:
