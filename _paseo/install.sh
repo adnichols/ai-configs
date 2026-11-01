@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Installs repo-managed Paseo skills. The only daemon config this writes is
-# agents.skills.selection (custom, empty) so the daemon does not revert those
-# skill directories. Host profiles, providers, relay, and other daemon keys
-# are left alone.
+# Installs repo-managed Paseo skills and the managed daemon keys in
+# config.json: agents.skills.selection (custom, empty) so the daemon does not
+# revert those skill directories, the omp-with-advisor provider, and the
+# orchestrator profiles that use it. Other host profiles, providers, relay,
+# and daemon keys are left alone.
 set -euo pipefail
 
 SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

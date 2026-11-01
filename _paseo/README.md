@@ -1,23 +1,35 @@
 # Paseo configuration in ai-configs
 
-This tree owns the `paseo*` skills. It does not override live Paseo daemon
-configuration: profiles, providers, relay, listen, CORS, and feature flags
-stay on each host.
+This tree owns the `paseo*` skills, the `omp-with-advisor` launch entry and
+the two orchestrator profiles. All other live Paseo daemon configuration
+(other profiles and providers, relay, listen, CORS, feature flags) stays on
+each host.
 
 ## Current bundle
 
-- `config.json` — the only managed daemon key is `agents.skills.selection`
-  (`custom`, empty list). That stops the daemon from rewriting the repo-owned
-  `paseo*` skill directories at startup. Everything else in `~/.paseo/config.json`
-  is host-local. Shipping profiles, providers, or `daemon.relay` from here
-  reset host `omp` profiles and disabled mobile relay.
+- `config.json` — the managed daemon keys:
+  - `agents.skills.selection` (`custom`, empty list) stops the daemon from
+    rewriting the repo-owned `paseo*` skill directories at startup.
+  - `agents.providers.omp-with-advisor` launches OMP as `omp --advisor`. That
+    turns on OMP's advisor for that agent only. Global `advisor.enabled` stays
+    `false`, and the advisor's model still comes from OMP's
+    `modelRoles.advisor`. An operator-typed `/advisor on` lasts only for the
+    session; an agent-sent one arrives as text and does nothing.
+  - `daemon.agentProfiles` `orchestrator-sol` and `orchestrator-opus` use that
+    entry, so drivers started from them run with the advisor. Workers and
+    judgment sessions use the host `omp` profile and run without it.
+
+  Everything else in `~/.paseo/config.json` is host-local. Shipping the `omp`
+  profile or `daemon.relay` from here once reset host `omp` profiles and
+  disabled mobile relay.
 - `merge_config.py` — deep-merge installer. Keys named in the managed file
-  win; keys absent from it are preserved.
+  win; keys absent from it are preserved. Profiles merge by name, and a
+  profile the host already has keeps its own `id`.
 - `skills/` — repo-owned copies of the `paseo*` skills. Seeded from the
   `@getpaseo/server` bundle; tune and evaluate them here. The `paseo` and
   `paseo-help` overrides route state, logs, and terminal output through the
   CLI before any UI automation.
-- `install.sh` — merges that one skills-selection key, syncs `skills/` into
+- `install.sh` — merges the managed keys, syncs `skills/` into
   `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, then runs
   `paseo reload` when a daemon is reachable.
 - `bots/skills/` — skills for the `paseo-bots` plugin, which reads them from

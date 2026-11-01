@@ -23,7 +23,7 @@ json_get() {
 
 # --- Fresh install: skills fan out; host daemon config is preserved ---
 mkdir -p "$PASEO_HOME"
-printf '{"auth":{"token":"keep-me"},"daemon":{"relay":{"enabled":true},"agentProfiles":[{"name":"omp","provider":"omp","model":"user-overridden"}]},"agents":{"providers":{"myprovider":{"enabled":true}}}}\n' > "$PASEO_HOME/config.json"
+printf '{"auth":{"token":"keep-me"},"daemon":{"relay":{"enabled":true},"agentProfiles":[{"name":"omp","provider":"omp","model":"user-overridden"},{"id":"host-sol-id","name":"orchestrator-sol","provider":"omp","model":"old","color":"teal"}]},"agents":{"providers":{"myprovider":{"enabled":true}}}}\n' > "$PASEO_HOME/config.json"
 mkdir -p "$SKILLS_A/paseo"
 printf 'locally tuned\n' > "$SKILLS_A/paseo/SKILL.md"
 printf '{"files":{}}\n' > "$SKILLS_A/paseo/.paseo-managed-files.json"
@@ -33,13 +33,28 @@ printf 'legacy backup\n' > "$SKILLS_B/paseo.before-ai-configs/SKILL.md"
 
 run_install
 
-# Only skills.selection is managed. Host profiles, providers, and relay stay.
+profile_get() {
+  json_get "$PASEO_HOME/config.json" "next(p for p in d['daemon']['agentProfiles'] if p['name'] == '$1').get('$2')"
+}
+
+# Managed: skills.selection, the omp-with-advisor provider, and the two
+# orchestrator profiles. Other host profiles, providers, and relay stay.
 test "$(json_get "$PASEO_HOME/config.json" "d['agents']['skills']['selection']['mode']")" = "custom"
 test "$(json_get "$PASEO_HOME/config.json" "d['agents']['skills']['selection']['skills']")" = "[]"
 test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['relay']['enabled']")" = "True"
-test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['agentProfiles'][0]['name']")" = "omp"
-test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['agentProfiles'][0]['model']")" = "user-overridden"
-test "$(json_get "$PASEO_HOME/config.json" "[p['name'] for p in d['daemon']['agentProfiles']]")" = "['omp']"
+test "$(profile_get omp model)" = "user-overridden"
+test "$(profile_get omp provider)" = "omp"
+test "$(json_get "$PASEO_HOME/config.json" "[p['name'] for p in d['daemon']['agentProfiles']]")" = "['orchestrator-sol', 'orchestrator-opus', 'omp']"
+# An orchestrator profile the host already had moves to the advisor launch
+# entry but keeps its host id and host-only fields.
+test "$(profile_get orchestrator-sol provider)" = "omp-with-advisor"
+test "$(profile_get orchestrator-sol model)" = "openai-codex/gpt-6.1-sol"
+test "$(profile_get orchestrator-sol id)" = "host-sol-id"
+test "$(profile_get orchestrator-sol color)" = "teal"
+# A profile new to the host arrives whole, with the managed id Paseo requires.
+test "$(profile_get orchestrator-opus provider)" = "omp-with-advisor"
+test "$(profile_get orchestrator-opus id)" = "agent_profile_mufjcgq5_um9p8m92zp"
+test "$(json_get "$PASEO_HOME/config.json" "d['agents']['providers']['omp-with-advisor']")" = "{'extends': 'omp', 'label': 'OMP (advisor on)', 'command': ['omp', '--advisor']}"
 test "$(json_get "$PASEO_HOME/config.json" "d['agents']['providers']['myprovider']['enabled']")" = "True"
 test "$(json_get "$PASEO_HOME/config.json" "'omp' in d['agents']['providers']")" = "False"
 test "$(json_get "$PASEO_HOME/config.json" "d['auth']['token']")" = "keep-me"
@@ -71,14 +86,16 @@ import json, sys
 path = sys.argv[1]
 d = json.load(open(path))
 d["daemon"]["agentProfiles"].append({"name": "local-only", "provider": "codex", "model": "gpt-5.6"})
-d["daemon"]["agentProfiles"][0]["model"] = "still-host-owned"
+next(p for p in d["daemon"]["agentProfiles"] if p["name"] == "omp")["model"] = "still-host-owned"
+next(p for p in d["daemon"]["agentProfiles"] if p["name"] == "orchestrator-opus")["provider"] = "omp"
 json.dump(d, open(path, "w"))
 EOF
 
 run_install
 
-test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['agentProfiles'][0]['model']")" = "still-host-owned"
-test "$(json_get "$PASEO_HOME/config.json" "[p['name'] for p in d['daemon']['agentProfiles']]")" = "['omp', 'local-only']"
+test "$(profile_get omp model)" = "still-host-owned"
+test "$(profile_get orchestrator-opus provider)" = "omp-with-advisor"
+test "$(json_get "$PASEO_HOME/config.json" "[p['name'] for p in d['daemon']['agentProfiles']]")" = "['orchestrator-sol', 'orchestrator-opus', 'omp', 'local-only']"
 
 # --- Bot skills install into the paseo-bots library once the plugin has run ---
 BOT_SKILL="$PASEO_HOME/plugin-data/paseo-bots/library/skills/pr-merge-gates"

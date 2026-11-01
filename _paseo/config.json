@@ -1,5 +1,34 @@
 {
+  "daemon": {
+    "agentProfiles": [
+      {
+        "id": "agent_profile_mu97wx26_nltrqd84m6",
+        "name": "orchestrator-sol",
+        "provider": "omp-with-advisor",
+        "model": "openai-codex/gpt-6.1-sol",
+        "modeId": "full",
+        "thinkingOptionId": "high",
+        "notes": "Do not call automatically. Use for orchestrating other omp sessions for big work"
+      },
+      {
+        "id": "agent_profile_mufjcgq5_um9p8m92zp",
+        "name": "orchestrator-opus",
+        "provider": "omp-with-advisor",
+        "model": "anthropic/claude-opus-5-5",
+        "modeId": "full",
+        "thinkingOptionId": "medium",
+        "notes": "Do not call automatically. Use for orchestration work by operator"
+      }
+    ]
+  },
   "agents": {
+    "providers": {
+      "omp-with-advisor": {
+        "extends": "omp",
+        "label": "OMP (advisor on)",
+        "command": ["omp", "--advisor"]
+      }
+    },
     "skills": {
       "selection": {
         "mode": "custom",

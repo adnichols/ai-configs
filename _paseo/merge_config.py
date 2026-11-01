@@ -4,7 +4,9 @@
 Merge semantics:
   - objects merge recursively; keys absent from the managed config are preserved
   - daemon.agentProfiles merges by profile name: managed profiles update in
-    place, locally added profiles are kept after the managed ones
+    place, locally added profiles are kept after the managed ones. A profile
+    the host already has keeps its own `id`; the managed `id` is used only
+    when the profile is new to the host
   - every other list is replaced by the managed value
   - scalars are overwritten by the managed value
 
@@ -36,7 +38,10 @@ def merge_profiles(managed, existing):
             name = profile["name"]
             local = by_name.get(name)
             if isinstance(local, dict):
-                merged.append(merge_values(local, profile))
+                updated = merge_values(local, profile)
+                if "id" in local:
+                    updated["id"] = local["id"]
+                merged.append(updated)
             else:
                 merged.append(profile)
             seen.add(name)

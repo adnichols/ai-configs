@@ -30,6 +30,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Paseo orchestrator drivers run with OMP's advisor on; nothing else does. `_paseo/config.json` now manages the `omp-with-advisor` provider (`extends: omp`, `command: ["omp", "--advisor"]`) and the `orchestrator-sol` and `orchestrator-opus` profiles, which use it. Global `advisor.enabled` stays `false`, and the advisor's model still comes from OMP's `modelRoles.advisor`. Workers and judgment sessions use the host `omp` profile and run without the advisor. `merge_config.py` keeps a host's existing profile `id` when it updates that profile by name.
+
 - OMP model config (2026-10-28, morning): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `plan` and `Oracle` are now `anthropic/claude-opus-5-5:xhigh` (were `openai-codex/gpt-5.6-sol:high` and `openai-codex/gpt-6.1-sol:high`), `reviewer-two` is now `openai-codex/gpt-6.1-terra:xhigh` (was `claude-haiku-5-5:xhigh`), `arch-one` is now `claude-opus-5-5:xhigh` (was `:high`), `arch-two` is now `anthropic/claude-fable-5-1:medium` (was `DeepSeek-V4.1-Flash-1017:max`), and `arch-three` is now `openai-codex/gpt-6-astra:medium` (was `gpt-6.1-sol:high`). Deployed to mbp, thump and unicorn; OMP upgraded to 18.13.3 on all three.
 
 - OMP model config (2026-10-26, morning): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `plan` is now `openai-codex/gpt-5.6-sol:high` (was `gpt-6.1-sol:high`), `default` is now `claude-sonnet-5-5:high` (was `:medium`), `task` is now `claude-sonnet-5-5:high` (was `:medium`), and `slow` is now `claude-opus-5-5:high` (was `gpt-6.1-sol:medium`). Deployed to mbp, dever, unicorn and thump.
