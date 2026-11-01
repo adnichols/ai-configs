@@ -50,7 +50,7 @@ class StartWksTest(unittest.TestCase):
         self.bin.mkdir()
         (self.bin / "paseo").symlink_to(shim)
         self.env["PATH"] = f"{self.bin}:{os.environ['PATH']}"
-        self.write_state(calls=[], workspaces=[], agents=[], remote={}, worktrees=str(self.tmp / "worktrees"))
+        self.write_state(calls=[], workspaces=[], agents=[], heartbeats=[], remote={}, worktrees=str(self.tmp / "worktrees"))
 
     def tearDown(self):
         subprocess.run(["rm", "-rf", str(self.tmp)], check=True)
@@ -89,6 +89,7 @@ class StartWksTest(unittest.TestCase):
 
     def assert_nothing_remains(self):
         self.assertEqual((self.state()["workspaces"], self.state()["agents"]), ([], []))
+        self.assertEqual([h for h in self.state()["heartbeats"] if h["status"] == "active"], [])
         self.assertEqual(self.local_branch(), "")
 
     def test_starts_a_top_level_owner_the_orchestrator_can_see(self):
@@ -107,6 +108,32 @@ class StartWksTest(unittest.TestCase):
             self.assertIn(text, agent["Prompt"])
         self.assertEqual((report["agent"], report["workspace"], report["base_sha"]), (agent["Id"], ws["workspaceId"], self.base))
         self.assertEqual((report["pinned"], self.state().get("pins")), (True, [ws["workspaceId"]]))
+        [heartbeat] = self.state()["heartbeats"]
+        self.assertEqual(heartbeat["agentId"], agent["Id"], "the heartbeat must prompt the owner, not the agent that ran the script")
+        self.assertEqual((heartbeat["name"], heartbeat["cron"], heartbeat["status"], report["heartbeat"]),
+                         ("WKS Ava format progress", "*/30 * * * *", "active", heartbeat["id"]))
+        self.assertIn('Progress check for the WKS workstream "Ava format"', heartbeat["prompt"])
+        self.assertNotIn(DOC, heartbeat["prompt"], "the heartbeat's prompt is its own, not the owner's brief")
+
+    def test_a_heartbeat_the_daemon_rejects_rolls_the_start_back(self):
+        self.update_state(heartbeat_fails=True)
+
+        code, report = self.start()
+
+        self.assertEqual(code, 3)
+        self.assertIn("heartbeat", report["error"])
+        self.assertEqual(report["left"], [])
+        self.assert_nothing_remains()
+
+    def test_a_heartbeat_that_lands_on_another_agent_is_deleted_and_the_start_rolled_back(self):
+        self.update_state(heartbeat_target=CALLER)
+
+        code, report = self.start()
+
+        self.assertEqual(code, 3)
+        self.assertIn("not the owner", report["error"])
+        self.assertEqual(self.state()["heartbeats"], [])
+        self.assert_nothing_remains()
 
     def test_a_failed_pin_still_leaves_the_owner_started_and_says_why(self):
         self.update_state(pin_fails=True)
@@ -135,6 +162,8 @@ class StartWksTest(unittest.TestCase):
 
         self.assertEqual((code, report["result"]), (0, "dry-run"))
         self.assertIn(DOC, report["brief"])
+        self.assertEqual(report["heartbeat_cron"], "*/30 * * * *")
+        self.assertIn('Progress check for the WKS workstream "Ava format"', report["heartbeat_prompt"])
         self.assertEqual(self.created_workspaces(), [])
         self.assert_nothing_remains()
 

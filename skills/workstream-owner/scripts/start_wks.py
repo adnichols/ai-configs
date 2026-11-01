@@ -17,9 +17,12 @@ live agent at its cwd, top-level agents first), so the title, the worktree isola
      PASEO_AGENT_ID removed from its environment: run from inside an agent, `paseo run` makes the new agent that agent's
      subagent otherwise.
   5. `paseo inspect`: the requested provider, model, thinking and mode, the workspace's cwd, and no ParentAgentId.
-     Any failure or interruption in steps 3 to 5 archives the workspace titled `WKS <name>` (found by title when the
-     create's outcome is unknown) and deletes the branch while it is still at the base commit.
-  6. Pin the workspace to Paseo's sidebar with pin_workspace.mjs, run beside the installed paseo CLI. The pin is for
+  6. `paseo heartbeat create --cron "*/30 * * * *" --name "WKS <name> progress"` with assets/progress-heartbeat.md as the
+     prompt and the owner's id in PASEO_AGENT_ID, which is how that command names the agent it prompts. Paseo skips a
+     firing while the owner is in a turn, so the heartbeat reaches an idle owner only, and completes it when the owner is
+     archived. Any failure or interruption in steps 3 to 6 archives the workspace titled `WKS <name>` (found by title
+     when the create's outcome is unknown) and deletes the branch while it is still at the base commit.
+  7. Pin the workspace to Paseo's sidebar with pin_workspace.mjs, run beside the installed paseo CLI. The pin is for
      the operator to find the owner; a pin that fails or is interrupted is reported in `pin_error`, and the start
      stands.
 
@@ -44,6 +47,8 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 BRIEF = SKILL_DIR / "assets" / "owner-brief.md"
+HEARTBEAT = SKILL_DIR / "assets" / "progress-heartbeat.md"
+HEARTBEAT_CRON = "*/30 * * * *"
 PIN_SCRIPT = SKILL_DIR / "scripts" / "pin_workspace.mjs"
 HOSTS_FILE = Path("~/.config/orchestrate/hosts.json")
 # The configuration of the WKS owners running when this skill was written; --model and --thinking override.
@@ -145,12 +150,13 @@ def remote_titled(host: str, target: str, title: str) -> tuple[list[dict], str |
         return [], f"{host}: {e}"
 
 
-def render(template: str, fields: dict[str, str]) -> str:
+def render(path: Path, fields: dict[str, str]) -> str:
+    template = path.read_text()
     for key, value in fields.items():
         template = template.replace("{{" + key + "}}", value)
     left = re.findall(r"\{\{[A-Z_]+\}\}", template)
     if left:
-        raise Refused(f"{BRIEF} has fields this script does not fill: {', '.join(sorted(set(left)))}")
+        raise Refused(f"{path} has fields this script does not fill: {', '.join(sorted(set(left)))}")
     return template
 
 
@@ -229,6 +235,24 @@ def verify(agent: str, ws: dict, args: argparse.Namespace) -> None:
         problems.append(f"ParentAgentId is {info['ParentAgentId']}, want none: the owner must not be a subagent")
     if problems:
         raise Failed(f"agent {agent} is misplaced: {'; '.join(problems)}")
+
+
+def add_heartbeat(plan: dict, agent: str, prompt: str) -> str:
+    """Create the owner's progress heartbeat and return its id."""
+    env = dict(os.environ, PASEO_AGENT_ID=agent)
+    p = run(["paseo", "heartbeat", "create", "--json", "--cron", HEARTBEAT_CRON, "--name", f"{plan['title']} progress",
+             prompt], env=env)
+    if p.returncode:
+        raise Failed(f"paseo heartbeat create failed: {tail(p)}")
+    row = parse_json(p, "paseo heartbeat create")
+    if not row.get("id"):
+        raise Failed(f"paseo heartbeat create printed no id: {p.stdout.strip()[:300]}")
+    # The row names the target as `agent:<first 7 of its id>`.
+    if row.get("target") != f"agent:{agent[:7]}":
+        gone = run(["paseo", "schedule", "delete", row["id"]])
+        kept = f"; delete it with `paseo schedule delete {row['id']}`: {tail(gone)}" if gone.returncode else ""
+        raise Failed(f"heartbeat {row['id']} targets {row.get('target')!r}, not the owner {agent}{kept}")
+    return row["id"]
 
 
 def paseo_node() -> tuple[list[str], dict[str, str]]:
@@ -323,13 +347,14 @@ def main(argv: list[str] | None = None) -> int:
         fields = {"NAME": plan["name"], "SOURCES": "\n".join(f"- {s}" for s in args.source),
                   "NOTES": " ".join(args.note) or "none", "HOST": plan["host"], "BRANCH": plan["branch"],
                   "BASE": plan["base"], "BASE_SHA": plan["base_sha"], "CHECKOUT": plan["checkout"]}
-        template = BRIEF.read_text()
-        preview = render(template, dict(fields, WORKSPACE="<new workspace>", WORKTREE="<new worktree>"))
+        preview = render(BRIEF, dict(fields, WORKSPACE="<new workspace>", WORKTREE="<new worktree>"))
+        heartbeat_prompt = render(HEARTBEAT, {"NAME": plan["name"], "CRON": HEARTBEAT_CRON})
     except (Refused, OSError) as e:
         print(f"start_wks.py: refused: {e}", file=sys.stderr)
         return emit(2, result="refused", error=str(e))
     if args.dry_run:
-        return emit(0, result="dry-run", **plan, model=args.model, thinking=args.thinking, brief=preview)
+        return emit(0, result="dry-run", **plan, model=args.model, thinking=args.thinking, brief=preview,
+                    heartbeat_cron=HEARTBEAT_CRON, heartbeat_prompt=heartbeat_prompt)
 
     # From here a hangup or kill must still roll back, as an exception does.
     signal.signal(signal.SIGTERM, interrupt)
@@ -337,9 +362,10 @@ def main(argv: list[str] | None = None) -> int:
     ws = agent = None
     try:
         ws = create_workspace(plan)
-        brief = render(template, dict(fields, WORKSPACE=ws["workspaceId"], WORKTREE=ws["cwd"]))
+        brief = render(BRIEF, dict(fields, WORKSPACE=ws["workspaceId"], WORKTREE=ws["cwd"]))
         agent = start_owner(plan, ws, args, brief)
         verify(agent, ws, args)
+        heartbeat = add_heartbeat(plan, agent, heartbeat_prompt)
     except BaseException as e:
         error = str(e) if isinstance(e, (Failed, Refused)) else f"{type(e).__name__}: {e}"
         left = roll_back(plan, ws)
@@ -350,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     return emit(0, result="started", agent=agent, workspace=ws["workspaceId"], title=plan["title"], worktree=ws["cwd"],
                 branch=plan["branch"], base=plan["base"], base_sha=plan["base_sha"], host=plan["host"],
                 model=args.model, thinking=args.thinking, unchecked_hosts=plan["unchecked_hosts"],
-                pinned=pin_error is None, pin_error=pin_error)
+                heartbeat=heartbeat, pinned=pin_error is None, pin_error=pin_error)
 
 
 if __name__ == "__main__":

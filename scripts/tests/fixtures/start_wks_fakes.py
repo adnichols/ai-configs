@@ -5,11 +5,15 @@ It models the CLI behavior start_wks.py depends on:
   ($PASEO_AGENT_ID set) inherits background unless `--no-background` is passed.
 - `workspace ls` hides background workspaces unless `--background` is passed, as the orchestrator's sweep sees them;
   `--host <target>` lists `remote[<target>]`, and a target missing there cannot be reached.
-- `workspace archive` removes the worktree and its agents and leaves the branch.
+- `workspace archive` removes the worktree and its agents and leaves the branch; the archived agents' heartbeats are
+  completed, as the daemon completes an archived agent's heartbeats.
 - `run` makes the new agent the subagent of $PASEO_AGENT_ID when that is set.
+- `heartbeat create` prompts the agent $PASEO_AGENT_ID names (it refuses without one) and prints the row the CLI prints,
+  whose target is `agent:<first 7 of the id>`; `schedule delete` removes any heartbeat.
 
 One-shot faults: `create_fails` (the workspace is created, then the command fails), `commit_on_run` (the new agent
-commits before inspect), `force` (overrides fields of the next agent, to model a misplaced launch).
+commits before inspect), `force` (overrides fields of the next agent, to model a misplaced launch), `heartbeat_fails`
+(the daemon rejects the heartbeat), `heartbeat_target` (the heartbeat lands on that agent id instead).
 """
 
 import json
@@ -57,7 +61,11 @@ def main(argv):
             subprocess.run(["git", "-C", ws["checkout"], "worktree", "remove", "--force", ws["cwd"]], check=True,
                            capture_output=True)
         state["workspaces"].remove(ws)
-        state["agents"] = [a for a in state["agents"] if a["Cwd"] != ws["cwd"]]
+        archived = {a["Id"] for a in state["agents"] if a["Cwd"] == ws["cwd"]}
+        state["agents"] = [a for a in state["agents"] if a["Id"] not in archived]
+        for hb in state["heartbeats"]:
+            if hb["agentId"] in archived:
+                hb["status"] = "completed"
         out = {"workspaceId": ws["workspaceId"], "status": "archived"}
     elif argv[0] == "run":
         ws = next(w for w in state["workspaces"] if w["workspaceId"] == opt(argv, "--workspace"))
@@ -71,6 +79,26 @@ def main(argv):
         out = {"agentId": agent["Id"], "status": "running", "provider": agent["Provider"], "cwd": agent["Cwd"], "title": agent["Name"]}
     elif argv[0] == "inspect":
         out = next(a for a in state["agents"] if a["Id"] == argv[1])
+    elif argv[:2] == ["heartbeat", "create"]:
+        agent = os.environ.get("PASEO_AGENT_ID")
+        if not agent:
+            print("Error: Heartbeat commands must run inside a Paseo agent", file=sys.stderr)
+            return 1
+        if state.pop("heartbeat_fails", False):
+            STATE.write_text(json.dumps(state))
+            print("Error: Failed to create heartbeat: Heartbeat creation failed", file=sys.stderr)
+            return 1
+        agent = state.pop("heartbeat_target", agent)
+        hb = {"id": uuid.uuid4().hex[:8], "name": opt(argv, "--name"), "cron": opt(argv, "--cron"), "agentId": agent,
+              "status": "active", "prompt": argv[-1]}
+        state["heartbeats"].append(hb)
+        out = {"id": hb["id"], "name": hb["name"], "cadence": f"cron:{hb['cron']}", "target": f"agent:{agent[:7]}",
+               "status": "active", "nextRunAt": None, "lastRunAt": None}
+        if "--json" not in argv:
+            out = f"ID        NAME  CADENCE  TARGET  STATUS\n{hb['id']}  {hb['name']}  cron:{hb['cron']}  agent:{agent[:7]}  active"
+    elif argv[:2] == ["schedule", "delete"]:
+        state["heartbeats"] = [h for h in state["heartbeats"] if h["id"] != argv[2]]
+        out = {"id": argv[2], "status": "deleted"}
     else:
         print(f"fake paseo: unsupported {argv}", file=sys.stderr)
         return 2
@@ -78,7 +106,7 @@ def main(argv):
     if code:
         print("Error: request timed out", file=sys.stderr)
     else:
-        print(json.dumps(out))
+        print(out if isinstance(out, str) else json.dumps(out))
     return code
 
 
